@@ -8,8 +8,8 @@ import Foundation
 ///
 /// Ghép lại được (`canRecompose`): địa danh, tổ chức (không phải họ tộc), thuật ngữ và — từ plan 2026-11-27-phan-loai-name
 /// L11 — **tên người** (sửa hậu tố Nhân danh / tiền tố ⇒ ghép lại). Họ tộc có cách ghép riêng — giữ nghĩa lúc lọc. Hàng bộ
-/// luật địa danh / tổ chức lúc lọc lấy đúng đuôi đã dò; ghép lại ở đây lấy đuôi dài nhất của danh sách — khác nhau chỉ khi
-/// danh sách có đuôi dài hơn khớp cuối name.
+/// luật địa danh / tổ chức lúc lọc cũng lấy hậu tố dài nhất của danh sách (2026-11-28); ghép lại ở đây chỉ khác khi danh
+/// sách không còn đuôi đã dò (lúc lọc ⇒ âm Hán-Việt viết thường đặt sau, ở đây ⇒ phần tên riêng như name không đuôi).
 ///
 /// Danh xưng 1 chữ (哥 兄…) lúc lọc cần bằng chứng của cả lượt (≥ 3 tên khác nhau đứng trước) mà ở đây không có ⇒ chỉ giữ
 /// khi nghĩa máy ghép trước đó đã dùng nó (`previousMeaning` kết thúc bằng nghĩa của danh xưng): "Lâm ca" không thành
@@ -48,9 +48,10 @@ final class LocalNameFilterMeaningComposer {
 
     /// **Dấu** của những gì quyết định nghĩa máy ghép ngoài từ điển: danh sách hậu tố + danh sách tiền tố (chữ, nghĩa, loại,
     /// vị trí) + công tắc "Ưu tiên tên Latin". Gói tạm nhớ dấu lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`);
-    /// trùng dấu hiện tại ⇒ không ghép lại — nếu không, mỗi lần trang đầu hiện ra hàng bộ luật địa danh / tổ chức (lúc lọc
-    /// lấy đúng đuôi đã dò) có thể đổi nghĩa theo đường ghép ở đây dù người dùng không đổi gì. `prefixes` mặc định = danh
-    /// sách "Tiền tố" hiện tại. Danh sách tiền tố rỗng cho đúng dấu của bản trước (không thêm dòng nào).
+    /// trùng dấu hiện tại ⇒ không ghép lại — nếu không, mỗi lần trang đầu hiện ra hàng bộ luật địa danh / tổ chức mà danh
+    /// sách đã xoá đuôi đã dò có thể đổi nghĩa theo đường ghép ở đây dù người dùng không đổi gì. `prefixes` mặc định = danh
+    /// sách "Tiền tố" hiện tại. Có thêm số phiên bản luật ghép (`rulesVersion`): đổi luật ghép ⇒ tăng số ⇒ mọi gói tạm ghép
+    /// lại một lần (nghĩa người dùng đã sửa vẫn giữ).
     static func signature(
         suffixes: [LocalNameFilter.Suffix],
         prefersLatinNames: Bool,
@@ -61,8 +62,13 @@ final class LocalNameFilterMeaningComposer {
         }
         let suffixLines = suffixes.map(line).sorted()
         let prefixLines = prefixes.map { "prefix:" + line($0) }.sorted()
-        return (suffixLines + prefixLines + ["latin=\(prefersLatinNames ? 1 : 0)"]).joined(separator: "\n").sha256()
+        let tail = ["latin=\(prefersLatinNames ? 1 : 0)", "rules=\(rulesVersion)"]
+        return (suffixLines + prefixLines + tail).joined(separator: "\n").sha256()
     }
+
+    /// Phiên bản luật ghép nghĩa trong dấu gói tạm. 2 = 2026-11-28: hậu tố dài nhất cho cả hàng bộ luật, phủ trọn chỉ cho
+    /// tên Latin.
+    static let rulesVersion = 2
 
     /// Loại ghép lại được: tên người, địa danh, tổ chức (không phải họ tộc), thuật ngữ.
     static func canRecompose(_ kind: LocalNameFilter.Kind) -> Bool {

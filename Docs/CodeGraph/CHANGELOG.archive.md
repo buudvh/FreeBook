@@ -2,6 +2,16 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1084] - 2026-11-27
+
+### fix: kho model LAC kiểm đường dẫn trước mọi lệnh ghi, chuyển, xoá file
+
+Bổ sung cho commit "bộ nhận diện tên LAC chạy trên máy…" theo luật validatePathSafety(for:) của rules.md (có thể gộp vào cùng entry CHANGELOG).
+
+- LACModelStore.validatePathSafety(for:): đích phải nằm trong translate/LAC/; xoá cả thư mục model thì kiểm thư mục đó nằm trong translate/. Chỉ giải symlink phần đã có trên đĩa (file chưa có ⇒ giải thư mục cha rồi ghép tên) để tiền tố /private của /var không làm so lệch.
+- LACModelDownloader gọi kiểm này trước khi xoá / chuyển file đã tải vào chỗ và trước khi ghi manifest; lỗi ⇒ downloadFailed.
+- check_architecture.py chỉ còn violation cũ JSDom.swift. Chưa biên dịch được tại chỗ (Windows).
+
 ## [1.3.1083] - 2026-11-27
 
 ### feat: bộ nhận diện tên LAC chạy trên máy, tự tải model lần đầu và tự kiểm với mẫu đối chiếu

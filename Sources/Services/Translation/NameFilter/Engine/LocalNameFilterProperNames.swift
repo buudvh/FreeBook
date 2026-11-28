@@ -243,22 +243,40 @@ final class LocalNameFilterProperNames {
     /// điển hoặc phủ trọn được, **và** mục cuối dài hơn đuôi (ranh giới đuôi rơi giữa mục) ⇒ ghép; không ⇒ `nil`. Gọi
     /// **trước** khi bóc đuôi: 贝克兰德 + 东区 ⇒ "Backlund Đông khu" (区 là đuôi ghép nghĩa, bóc trước thì mất 东区); mục cuối
     /// trùng đúng đuôi (三元 + 圣体) ⇒ `nil`, để nghĩa đuôi theo danh sách người dùng ("Tam Nguyên thánh thể").
+    ///
+    /// Chỉ name có **phần tên Latin thật** (2026-11-28, anh Bửu duyệt cách 2: "tên không phải la tinh thì dùng tiền tố
+    /// hậu tố thôi"): ít nhất một mục là chữ Latin **và** khác âm Hán-Việt của khoá (`isRealLatin` — "Tinh La" của 星罗
+    /// không tính). Tên kiểu Hán ⇒ `nil` ⇒ luôn bóc tiền tố / hậu tố theo danh sách, VP không nuốt hậu tố (昆仑神宫 ⇒ "Côn
+    /// Luân Thần cung", không phải "Côn Luân Thần Cung").
     func coverAll(_ word: Word, suffixLength: Int) -> String? {
         var texts: [String] = []
         var lastLength = 0
+        var hasLatin = false
         for piece in word.scalars.split(whereSeparator: { Self.separators.contains($0) }) {
             let piece = Word(scalars: Array(piece))
             if let whole = coverEntry(piece) {
                 texts.append(whole)
                 lastLength = piece.count
+                hasLatin = hasLatin || isRealLatin(whole, key: piece)
                 continue
             }
             guard let parts = coverParts(piece), let last = parts.last else { return nil }
-            texts.append(contentsOf: parts.map { $0.text })
+            var start = 0
+            for part in parts {
+                texts.append(part.text)
+                hasLatin = hasLatin || isRealLatin(part.text, key: piece.slice(start, start + part.length))
+                start += part.length
+            }
             lastLength = last.length
         }
-        guard !texts.isEmpty, lastLength > suffixLength else { return nil }
+        guard !texts.isEmpty, lastLength > suffixLength, hasLatin else { return nil }
         return texts.joined(separator: " ")
+    }
+
+    /// Nghĩa `text` của khoá `key` là tên Latin thật: chữ Latin (`isLatinName`) và khác âm Hán-Việt của khoá (không tính
+    /// họ) — như `name_meaning.py`.
+    private func isRealLatin(_ text: String, key: Word) -> Bool {
+        Self.isLatinName(text) && text.lowercased() != reading(key, surnameLength: 0).lowercased()
     }
 
     /// Phủ trọn mảnh bằng các mục ≥ 2 chữ `coverEntry`, khớp dài nhất từ trái; còn chữ lẻ ⇒ `nil`.

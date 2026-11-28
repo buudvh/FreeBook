@@ -13,9 +13,11 @@ import Foundation
 ///      (`titles`). Không còn Pronouns. Người không danh xưng ⇒ `properAll` (họ theo Danh sách họ ở bước Hán-Việt);
 ///    - họ + 家 / 氏 / 族 ⇒ như cũ ("Tần gia");
 ///    - địa danh / tổ chức / thuật ngữ có đuôi ⇒ thử phủ trọn cả từ bằng mục từ điển mà mục cuối dài hơn đuôi
-///      (贝克兰德 + 东区 — `coverAll`), không được thì phần riêng + nghĩa đuôi trước / sau. Nghĩa đuôi lấy ở **danh sách người
-///      dùng** (cách A — mọi đuôi địa danh / tổ chức / thuật ngữ, kể cả 观 花 区): hàng LAC lấy đuôi dài nhất của danh sách;
-///      hàng bộ luật lấy đúng đuôi đã dò, vắng trong danh sách ⇒ âm Hán-Việt viết thường đặt sau;
+///      (贝克兰德 + 东区 — `coverAll`, chỉ name có phần tên Latin thật), không được thì phần riêng + nghĩa đuôi trước / sau.
+///      Nghĩa đuôi lấy ở **danh sách người dùng** (cách A — mọi đuôi địa danh / tổ chức / thuật ngữ, kể cả 观 花 区): hậu tố
+///      **dài nhất** của danh sách khớp cuối name, cho cả hàng LAC lẫn hàng bộ luật (2026-11-28: 瑶池仙阁 có hậu tố 仙阁 ⇒
+///      "Dao Trì tiên các" — trước đó hàng bộ luật chỉ lấy đuôi đã dò 阁 nên 仙阁 của VP nuốt cả cụm); hàng bộ luật không có
+///      hậu tố nào dài hơn ⇒ đúng đuôi đã dò, vắng trong danh sách ⇒ âm Hán-Việt viết thường đặt sau;
 ///    - không đuôi ⇒ `properAll`.
 ///    Tiền tố (老尼尔 ⇒ "lão Neil") áp ở từng mảnh trong `properAll`, theo nhóm: tiền tố loại `person` cho tên người, loại
 ///    khác cho name không phải người.
@@ -56,6 +58,10 @@ struct LocalNameFilterMeaningBuilder {
         case .place, .sect:
             if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
             guard extra > 0, extra < word.count else { return plain(word) }
+            // Hậu tố dài hơn đuôi đã dò trong danh sách người dùng ⇒ ghép như hàng phía LAC (瑶池仙阁: 仙阁 thắng 阁).
+            if let longest = setup.meaningSuffix(of: word), longest.length > extra {
+                return suffixed(word, longest)
+            }
             if let covered = properNames.coverAll(word, suffixLength: extra) {
                 return Built(meaning: covered, title: nil, isGuessed: false)
             }
@@ -83,6 +89,12 @@ struct LocalNameFilterMeaningBuilder {
         }
         if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
         guard let suffix = setup.meaningSuffix(of: word) else { return plain(word) }
+        return suffixed(word, suffix)
+    }
+
+    /// Name không phải người với hậu tố `suffix` của danh sách người dùng: phủ trọn cả từ (chỉ tên Latin) ⇒ nghĩa đó; không
+    /// thì phần riêng + nghĩa hậu tố trước / sau.
+    private func suffixed(_ word: Word, _ suffix: (length: Int, suffix: LocalNameFilter.Suffix)) -> Built {
         if let covered = properNames.coverAll(word, suffixLength: suffix.length) {
             return Built(meaning: covered, title: nil, isGuessed: false)
         }
