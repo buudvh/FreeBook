@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1138] - 2026-11-28
+
+### feat: màn Hậu tố, Tiền tố và Không phải name của lọc name local nhập được danh sách từ file
+
+- Anh Bửu hỏi "sao làm xuất rồi mà không làm nhập" và duyệt plan 2026-11-28: ngăn kéo `…` của ba màn danh sách (Hậu tố, Tiền tố — `LocalNameFilterSuffixListView`; Không phải name — `LocalNameFilterBlocklistView`) có thêm hàng "Nhập file" ngay trên "Xuất file". Chọn file trước, rồi popup ba cách nhập kèm tên file (`.dataImportFilePicker` có sẵn), nhập vào danh sách của chip phạm vi đang chọn (Chung / Riêng truyện); tiêu đề popup ghi rõ đích khi màn có hai phạm vi.
+- Định dạng = đúng thứ "Xuất file" ghi nên file app tự xuất nhập lại được: hậu tố / tiền tố mỗi dòng `chữ Hán=nghĩa|loại|vị trí[|off]` (đọc + kiểm bằng `LocalNameFilterSuffixListParser`, cờ `|off` đọc được nhưng bỏ qua), Không phải name mỗi dòng một cụm (`LocalNameFilterBlocklistStore.formatError`); dòng trống, dòng `#`, BOM đầu file bỏ qua; dòng sai bị bỏ và đếm. File không có dòng hợp lệ nào ⇒ báo lỗi, không ghi gì.
+- Ba chế độ:
+  - Gộp: khoá đã có thì đè nghĩa / loại / vị trí (chỉ tính "cập nhật" khi thực sự khác), khoá mới thì thêm; ở Hậu tố / Tiền tố Chung mục gốc đã xoá mà file có thì hiện lại. Không phải name: cụm đã có giữ nguyên.
+  - Chỉ thêm key mới: khoá / cụm đã có giữ nguyên; ở Hậu tố / Tiền tố Chung mục gốc đã xoá trên máy cũng coi là đã có (như Danh sách họ).
+  - Thay thế toàn bộ: danh sách thành đúng nội dung file. Hậu tố / Tiền tố Chung (file gốc + lớp sửa đổi): mục gốc vắng trong file vào `removed`, mục trùng y bản gốc không ghi vào `entries` (`LocalNameFilterSuffixOverrides.importLines`). Riêng truyện: thay cả danh sách của truyện. Không phải name: thay cả danh sách, cụm vốn có giữ ngày thêm cũ.
+  - Không phải name vượt trần 5.000 cụm sau khi nhập ⇒ báo lỗi, không nhập một phần.
+- Tầng Service: `LocalNameFilterListImport` (file mới — kiểu kết quả `Outcome` / `Failure`, đọc file, phép trộn thuần) + `LocalNameFilterAffixListStore+Import`, `LocalNameFilterBookAffixStore+Import`, `LocalNameFilterBlocklistStore+Import`, `LocalNameFilterBookBlocklistStore+Import` (file mới). Mỗi lần nhập ghi `UserDefaults` đúng một lần; store riêng truyện đọc – trộn – ghi dưới `lock` của nó; kết quả trùng y dữ liệu cũ thì không ghi. Vài hàm đọc / ghi nội bộ của bốn store bỏ `private` để file `+Import` dùng.
+- Nhập xong màn đọc lại danh sách, toast "Đã nhập: thêm X, cập nhật Y" (thêm ", bỏ N … cũ" khi thay thế, ", bỏ qua Z dòng lỗi" khi có dòng sai; Không phải name không có "cập nhật"); lỗi ⇒ toast lỗi + log `❌ [LọcName]`. Không dọn cache dịch (các danh sách này không vào bộ dịch).
+- `.claude/rules/translation.md`: ghi Nhập file; sửa số bản của đợt 4 thành 1.3.1137.
+- Chưa build (máy Windows); chưa thử trên máy.
+
 ## [1.3.1137] - 2026-11-28
 
 ### feat: lọc name local nối lại tên bị LAC cắt cụt, trả lại tên chính bị bỏ nhầm và thêm bảy luật rác theo ngữ cảnh
@@ -412,25 +428,5 @@ Plan 2026-11-27-phan-loai-name L10, L13, L15 (anh Bửu: "Thêm chọn min max s
   "2 – 10+ chữ" / "3 – 6 chữ"; nhớ bằng `@AppStorage` `localNameFilterMinLength` / `localNameFilterMaxLength`.
 - "Bắt đầu lọc" truyền `prefixes` (danh sách Tiền tố), `minLength`, `maxLength` (10+ ⇒ `nil`) vào
   `LocalNameFilter.Configuration`; dấu nghĩa của gói tạm tính theo đúng danh sách tiền tố của lượt lọc.
-
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1108] - 2026-11-28
-
-### feat: màn Sửa từ của màn duyệt lọc name local có hàng Tiền tố và Hậu tố cho mọi name, hiện đủ mục nằm trong cụm
-
-Plan 2026-11-27-phan-loai-name mục 7, 10, L10, L11 (anh Bửu: "Ngoài lựa chọn nhanh hãy hiển thị đủ các hậu tố và tiền tố
-nằm trong cụm", "sắp xếp theo thứ tự số từ tăng dần"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 2–3.
-
-- `LocalNameFilterSuffixQuickRow(flavor:)` dùng cho hai hàng "Tiền tố" (trên) và "Hậu tố" (dưới), hiện cho mọi loại name
-  kể cả tên người (mục mới mặc định Nhân danh); họ tộc (萧家) vẫn không có.
-- Chip ✓ cho mọi mục có sẵn nằm trong cụm, dài 1–6 chữ: hậu tố ở cuối hoặc giữa cụm (东城区血刀帮 ⇒ ✓ 区, ✓ 帮), tiền tố ở
-  đầu hoặc giữa cụm; chạm ⇒ sửa mục đó. Dấu ● trên mục đang ghép nghĩa: hậu tố dài nhất ở cuối / tiền tố dài nhất ở đầu,
-  cùng nhóm với name như bộ ghép (Nhân danh ⇄ tên người). Chip "+" cho đoạn cuối / đầu 1–3 chữ chưa có; "+ Thêm hậu tố /
-  tiền tố" (mở cả cụm) luôn cuối hàng; mọi chip xếp theo số chữ tăng dần (陈太上长老: 老 · 长老 · + 上长老 · ● 太上长老).
-- `LocalNameFilterReviewSuffixContext`: `affixKind(for:)` thay `suffixKind` (tên người ⇒ Nhân danh);
-  `enqueueRecompose(affixes:flavor:)` ghép lại name kết thúc bằng hậu tố / mở đầu bằng tiền tố vừa lưu, kể cả tên người,
-  truyền nghĩa máy ghép lần trước (giữ danh xưng 1 chữ "Lâm ca") và danh sách tiền tố hiện tại.
-- Toast "Đã thêm hậu tố / tiền tố X · ghép lại N name".
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.

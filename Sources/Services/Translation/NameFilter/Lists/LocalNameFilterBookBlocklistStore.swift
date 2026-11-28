@@ -28,7 +28,8 @@ final class LocalNameFilterBookBlocklistStore: @unchecked Sendable {
     /// Trần mỗi truyện — như danh sách Chung.
     static let maxCount = LocalNameFilterBlocklistStore.maxCount
 
-    private let lock = NSLock()
+    /// Khoá đọc – sửa – ghi (không `private` để file `+Import` trộn rồi ghi một lần dưới cùng khoá).
+    let lock = NSLock()
     private let corruptLogLock = NSLock()
     private var lastCorruptRaw: String?
 
@@ -157,7 +158,7 @@ final class LocalNameFilterBookBlocklistStore: @unchecked Sendable {
 
     // MARK: - Nội bộ
 
-    private static let noBookError = "Không có truyện để lưu cụm riêng."
+    static let noBookError = "Không có truyện để lưu cụm riêng."
 
     private func items(bookId: String) -> [Entry] {
         guard !bookId.isEmpty else { return [] }
@@ -165,7 +166,7 @@ final class LocalNameFilterBookBlocklistStore: @unchecked Sendable {
     }
 
     /// Khoá vắng hoặc JSON hỏng ⇒ rỗng (log ❌ một lần cho mỗi chuỗi hỏng).
-    private func currentTable() -> [String: [Entry]] {
+    func currentTable() -> [String: [Entry]] {
         guard let raw = UserDefaults.standard.string(forKey: Self.userDefaultsKey), let data = raw.data(using: .utf8) else {
             return [:]
         }
@@ -186,7 +187,7 @@ final class LocalNameFilterBookBlocklistStore: @unchecked Sendable {
 
     /// Gọi khi đang giữ `lock`. Bảng rỗng ⇒ xoá khoá. `nil` = đã ghi; chuỗi = lỗi.
     @discardableResult
-    private func write(_ table: [String: [Entry]]) -> String? {
+    func write(_ table: [String: [Entry]]) -> String? {
         let cleaned = table.filter { !$0.key.isEmpty && !$0.value.isEmpty }
         if cleaned.isEmpty {
             UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)

@@ -24,8 +24,8 @@ final class LocalNameFilterBookAffixStore: @unchecked Sendable {
     static let suffixes = LocalNameFilterBookAffixStore(defaultsKey: "localNameFilterBookSuffixes", noun: "Hậu tố")
     static let prefixes = LocalNameFilterBookAffixStore(defaultsKey: "localNameFilterBookPrefixes", noun: "Tiền tố")
 
-    /// Một mục trong JSON.
-    private struct StoredItem: Codable, Equatable {
+    /// Một mục trong JSON (không `private` để file `+Import` dựng mục từ dòng file).
+    struct StoredItem: Codable, Equatable {
         let key: String
         let meaning: String
         let kind: LocalNameFilter.SuffixKind
@@ -37,7 +37,8 @@ final class LocalNameFilterBookAffixStore: @unchecked Sendable {
     /// Danh từ của một mục trong lỗi: "Hậu tố", "Tiền tố".
     let noun: String
 
-    private let lock = NSLock()
+    /// Khoá đọc – sửa – ghi (không `private` để file `+Import` trộn rồi ghi một lần dưới cùng khoá).
+    let lock = NSLock()
     private let corruptLogLock = NSLock()
     private var lastCorruptRaw: String?
 
@@ -160,7 +161,7 @@ final class LocalNameFilterBookAffixStore: @unchecked Sendable {
     }
 
     /// Khoá vắng hoặc JSON hỏng ⇒ rỗng (log ❌ một lần cho mỗi chuỗi hỏng).
-    private func currentTable() -> [String: [StoredItem]] {
+    func currentTable() -> [String: [StoredItem]] {
         guard let raw = UserDefaults.standard.string(forKey: defaultsKey), let data = raw.data(using: .utf8) else { return [:] }
         guard let decoded = try? JSONDecoder().decode([String: [StoredItem]].self, from: data) else {
             corruptLogLock.lock()
@@ -177,7 +178,7 @@ final class LocalNameFilterBookAffixStore: @unchecked Sendable {
 
     /// Gọi khi đang giữ `lock`. Bảng rỗng ⇒ xoá khoá. `nil` = đã ghi; chuỗi = lỗi.
     @discardableResult
-    private func write(_ table: [String: [StoredItem]]) -> String? {
+    func write(_ table: [String: [StoredItem]]) -> String? {
         let cleaned = table.filter { !$0.key.isEmpty && !$0.value.isEmpty }
         if cleaned.isEmpty {
             UserDefaults.standard.removeObject(forKey: defaultsKey)

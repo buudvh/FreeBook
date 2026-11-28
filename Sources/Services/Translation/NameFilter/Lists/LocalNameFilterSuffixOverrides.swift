@@ -112,6 +112,57 @@ struct LocalNameFilterSuffixOverrides: Codable, Equatable, Sendable {
         entries[key] = nil
     }
 
+    // MARK: - Nhập file
+
+    /// Nhập các dòng đã đọc + kiểm từ file (khoá không lặp) theo `mode`; trả số mục thêm / cập nhật / bỏ so với danh sách
+    /// hiệu lực trước đó. Cùng luật với Danh sách họ (`QuickTranslationSurnameOverrides.importLines`):
+    /// - **Gộp** (`overwriteExisting`): khoá đã có ⇒ đè nghĩa / loại / vị trí (chỉ tính "cập nhật" khi thực sự khác); khoá
+    ///   mới ⇒ thêm; mục gốc đã xoá mà file có ⇒ hiện lại (tính "thêm").
+    /// - **Chỉ thêm key mới** (`keepExisting`): khoá đã có — kể cả mục gốc đã xoá trên máy — giữ nguyên.
+    /// - **Thay thế toàn bộ** (`replaceAll`): danh sách thành đúng nội dung file — mục gốc vắng trong file ⇒ `removed`,
+    ///   mục mới / khác bản gốc ⇒ `entries`, mục trùng y bản gốc thì không ghi.
+    /// Cờ `|off` của dòng (`isDetectable`) không dùng: lớp riêng không giữ nó, bộ dò lấy từ file gốc.
+    mutating func importLines(_ lines: [Line], mode: DataImportMode, base: Base) -> (added: Int, updated: Int, removed: Int) {
+        var current: [String: Value] = [:]
+        for entry in merged(with: base) { current[entry.key] = entry.value }
+        var added = 0
+        var updated = 0
+
+        switch mode {
+        case .replaceAll:
+            let fileKeys = Set(lines.map(\.key))
+            var next = Self.empty
+            next.removed = Self.normalized(base.lines.map(\.key).filter { !fileKeys.contains($0) })
+            for line in lines {
+                if let old = current[line.key] {
+                    if old != line.value { updated += 1 }
+                } else {
+                    added += 1
+                }
+                if base.linesByKey[line.key]?.value != line.value { next.entries[line.key] = line.value }
+            }
+            let dropped = current.keys.filter { !fileKeys.contains($0) }.count
+            self = next
+            return (added, updated, dropped)
+
+        case .overwriteExisting, .keepExisting:
+            let removedKeys = Set(removed)
+            for line in lines {
+                let existing = current[line.key]
+                // "Chỉ thêm key mới" coi mục gốc đã xoá trên máy là khoá đã có — như Danh sách họ / tombstone VP Chung.
+                if mode == .keepExisting, existing != nil || removedKeys.contains(line.key) { continue }
+                if let existing {
+                    guard existing != line.value else { continue }
+                    updated += 1
+                } else {
+                    added += 1
+                }
+                setValue(line.value, for: line.key, base: base)
+            }
+            return (added, updated, 0)
+        }
+    }
+
     // MARK: - Nội bộ
 
     private static func normalized(_ keys: [String]) -> [String] {

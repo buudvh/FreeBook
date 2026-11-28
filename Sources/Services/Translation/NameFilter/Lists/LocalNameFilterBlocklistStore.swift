@@ -121,8 +121,8 @@ final class LocalNameFilterBlocklistStore {
     private static let corruptLogLock = NSLock()
     private static var lastCorruptRaw: String?
 
-    /// Khoá vắng ⇒ rỗng; JSON hỏng ⇒ rỗng + log (lần ghi sau ghi đè bản hỏng).
-    private static func load() -> [Entry] {
+    /// Khoá vắng ⇒ rỗng; JSON hỏng ⇒ rỗng + log (lần ghi sau ghi đè bản hỏng). Không `private` để file `+Import` dùng.
+    static func load() -> [Entry] {
         guard let raw = UserDefaults.standard.string(forKey: userDefaultsKey), let data = raw.data(using: .utf8) else {
             return []
         }
@@ -142,8 +142,8 @@ final class LocalNameFilterBlocklistStore {
         return entries
     }
 
-    /// Rỗng ⇒ xoá khoá. `nil` = đã ghi; chuỗi = lỗi.
-    private static func save(_ entries: [Entry]) -> String? {
+    /// Rỗng ⇒ xoá khoá. `nil` = đã ghi; chuỗi = lỗi. Không `private` để file `+Import` ghi cả danh sách một lần.
+    static func save(_ entries: [Entry]) -> String? {
         if entries.isEmpty {
             UserDefaults.standard.removeObject(forKey: userDefaultsKey)
             return nil

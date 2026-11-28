@@ -6,6 +6,7 @@ import Foundation
 /// - hậu tố / tiền tố: `chữ Hán=nghĩa|loại|vị trí` như `NameFilterSuffixes.txt` / `NameFilterPrefixes.txt`;
 /// - Không phải name: mỗi dòng một cụm.
 /// Dòng đầu là chú thích `#` (danh sách, phạm vi, số mục, giờ xuất). Ghi vào thư mục tạm rồi đưa bảng chia sẻ hệ thống.
+/// "Nhập file" của cùng ba màn đọc lại đúng định dạng này (`LocalNameFilterListImport`) — đổi dạng dòng thì đổi cả hai bên.
 enum LocalNameFilterListExport {
     /// File đang đưa cho bảng chia sẻ (`.sheet(item:)` của màn danh sách).
     struct File: Identifiable {

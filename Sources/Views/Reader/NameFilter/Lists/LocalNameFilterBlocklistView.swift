@@ -1,9 +1,10 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Màn **Không phải name** của Lọc name local (mockup khung 6) — đẩy vào `NavigationStack` của sheet "Lọc name local" từ
-/// mục "Danh sách". Kiểu màn danh sách: header nút quay lại + `…` (`.sideDrawerMenu`: Xoá hết), ô tìm luôn hiện (chữ Hán /
-/// âm Hán-Việt), tiêu đề section "N cụm", hàng `LocalNameFilterBlocklistRow` (chạm thân hàng mở màn Sửa từ, 🗑), nút `+`
-/// nổi mở cùng màn ở chế độ thêm — `LocalNameFilterBlocklistEditorSheet`.
+/// mục "Danh sách". Kiểu màn danh sách: header nút quay lại + `…` (`.sideDrawerMenu`: Nhập file, Xuất file, Xoá hết), ô
+/// tìm luôn hiện (chữ Hán / âm Hán-Việt), tiêu đề section "N cụm", hàng `LocalNameFilterBlocklistRow` (chạm thân hàng mở
+/// màn Sửa từ, 🗑), nút `+` nổi mở cùng màn ở chế độ thêm — `LocalNameFilterBlocklistEditorSheet`.
 ///
 /// **Mở từ một truyện** (`bookId`, 2026-11-28 — mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N4): hàng chip
 /// phạm vi **"Chung N · Riêng truyện N"** như màn Hậu tố (M6); thêm / sửa / xoá / Xoá hết theo chip đang chọn — Riêng truyện
@@ -56,6 +57,7 @@ struct LocalNameFilterBlocklistView: View {
     @State private var showingMenu = false
     @State private var confirmingClear = false
     @State private var exportedFile: LocalNameFilterListExport.File?
+    @State private var showingFilePicker = false
 
     init(bookId: String? = nil) {
         self.bookId = bookId.flatMap { $0.isEmpty ? nil : $0 }
@@ -115,6 +117,10 @@ struct LocalNameFilterBlocklistView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingMenu, title: Self.title) {
+            // Nhập vào đúng danh sách của chip phạm vi đang chọn: chọn file trước, rồi popup ba cách nhập.
+            SideDrawerActionRow("Nhập file", systemImage: "square.and.arrow.down") {
+                showingFilePicker = true
+            }
             // Xuất đúng danh sách của chip phạm vi đang chọn, mỗi dòng một cụm (`LocalNameFilterListExport`).
             SideDrawerActionRow("Xuất file", systemImage: "square.and.arrow.up") {
                 exportList()
@@ -138,6 +144,13 @@ struct LocalNameFilterBlocklistView: View {
         .sheet(item: $exportedFile) { file in
             ShareSheet(activityItems: [file.url])
         }
+        .dataImportFilePicker(
+            isPresented: $showingFilePicker,
+            allowedContentTypes: [.plainText, .text],
+            title: importTitle
+        ) { url, mode in
+            importFile(url, mode: mode)
+        }
         .confirmationDialog(clearTitle, isPresented: $confirmingClear, titleVisibility: .visible) {
             Button("Xoá hết \(items.count) cụm", role: .destructive) { removeAll() }
             Button("Hủy", role: .cancel) {}
@@ -156,6 +169,32 @@ struct LocalNameFilterBlocklistView: View {
         } catch {
             AppLogger.shared.log("❌ [LọcName] Không xuất được danh sách Không phải name: \(error.localizedDescription)")
             ToastManager.shared.show(message: "Không xuất được file: \(error.localizedDescription)", type: .error)
+        }
+    }
+
+    /// Tiêu đề popup chọn cách nhập — nói rõ danh sách đích khi màn có hai phạm vi.
+    private var importTitle: String {
+        guard bookId != nil else { return "Nhập danh sách Không phải name" }
+        return activeScope == .book ? "Nhập Không phải name riêng truyện" : "Nhập Không phải name chung"
+    }
+
+    /// Ngăn kéo › "Nhập file": file + cách nhập đã chọn (popup hiện sau bộ chọn file, chạy khi popup đóng hẳn) ⇒ nhập vào
+    /// danh sách của chip phạm vi đang chọn, mỗi dòng một cụm như "Xuất file". File nhỏ ⇒ đọc ngay trên main; store ghi
+    /// một lần.
+    private func importFile(_ url: URL, mode: DataImportMode) {
+        let result: LocalNameFilterListImport.ImportResult
+        if let bookId, activeScope == .book {
+            result = BookStore.shared.importFile(at: url, mode: mode, bookId: bookId)
+        } else {
+            result = Store.shared.importFile(at: url, mode: mode)
+        }
+        reload()
+        switch result {
+        case .success(let outcome):
+            ToastManager.shared.show(message: outcome.summary(unit: "cụm", countsUpdates: false), type: .success)
+        case .failure(let failure):
+            AppLogger.shared.log("❌ [LọcName] Không nhập được danh sách Không phải name: \(failure.message)")
+            ToastManager.shared.show(message: "Lỗi nhập danh sách Không phải name: \(failure.message)", type: .error)
         }
     }
 

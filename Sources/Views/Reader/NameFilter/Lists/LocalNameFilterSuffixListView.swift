@@ -1,10 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Màn **Hậu tố** / **Tiền tố** của Lọc name local (plan 2026-11-27-phan-loai-name mockup khung 6 / 7) — một màn cho cả hai
 /// danh sách, khác nhau ở `LocalNameFilterAffixListFlavor` (store, chữ, mặc định). Đẩy vào `NavigationStack` của sheet "Lọc
 /// name local" từ mục "Danh sách". Khuôn màn Danh sách họ (`QuickTranslationSurnameListView`): header nút quay lại + `…`
-/// (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện (chữ Hán / nghĩa), hàng chip lọc theo loại kèm số
-/// (`LocalNameFilterAffixKindFilterBar`: Tất cả / Địa danh / Tổ chức / Thuật ngữ / Nhân danh), nút `+` nổi, hàng
+/// (`.sideDrawerMenu`: Nhập file, Xuất file, Khôi phục mặc định), ô tìm luôn hiện (chữ Hán / nghĩa), hàng chip lọc theo
+/// loại kèm số (`LocalNameFilterAffixKindFilterBar`: Tất cả / Địa danh / Tổ chức / Thuật ngữ / Nhân danh), nút `+` nổi, hàng
 /// `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Xoá]`). Danh sách chỉ để
 /// ghép nghĩa — việc dò dùng bộ hậu tố cố định của app.
 ///
@@ -43,6 +44,7 @@ struct LocalNameFilterSuffixListView: View {
     @State private var showingMenu = false
     @State private var confirmingReset = false
     @State private var exportedFile: LocalNameFilterListExport.File? = nil
+    @State private var showingFilePicker = false
 
     init(flavor: Flavor = .suffix, bookId: String? = nil) {
         self.flavor = flavor
@@ -147,6 +149,10 @@ struct LocalNameFilterSuffixListView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingMenu, title: flavor.noun) {
+            // Nhập vào đúng danh sách của chip phạm vi đang chọn: chọn file trước, rồi popup ba cách nhập.
+            SideDrawerActionRow("Nhập file", systemImage: "square.and.arrow.down") {
+                showingFilePicker = true
+            }
             // Xuất đúng danh sách của chip phạm vi đang chọn (`LocalNameFilterListExport`).
             SideDrawerActionRow("Xuất file", systemImage: "square.and.arrow.up") {
                 exportList()
@@ -175,6 +181,13 @@ struct LocalNameFilterSuffixListView: View {
                 )
             }
             .appGlassSheet()
+        }
+        .dataImportFilePicker(
+            isPresented: $showingFilePicker,
+            allowedContentTypes: [.plainText, .text],
+            title: importTitle
+        ) { url, mode in
+            importFile(url, mode: mode)
         }
         .confirmationDialog(
             "Khôi phục danh sách \(flavor.lowercasedNoun) mặc định?",
@@ -258,6 +271,28 @@ struct LocalNameFilterSuffixListView: View {
         } catch {
             AppLogger.shared.log("❌ [LọcName] Không xuất được danh sách \(flavor.lowercasedNoun): \(error.localizedDescription)")
             ToastManager.shared.show(message: "Không xuất được file: \(error.localizedDescription)", type: .error)
+        }
+    }
+
+    /// Tiêu đề popup chọn cách nhập — nói rõ danh sách đích khi màn có hai phạm vi.
+    private var importTitle: String {
+        guard bookId != nil else { return "Nhập danh sách \(flavor.lowercasedNoun)" }
+        return activeScope == .book ? "Nhập \(flavor.lowercasedNoun) riêng truyện" : "Nhập \(flavor.lowercasedNoun) chung"
+    }
+
+    /// Ngăn kéo › "Nhập file": file + cách nhập đã chọn (popup hiện sau bộ chọn file, chạy khi popup đóng hẳn) ⇒ nhập vào
+    /// danh sách của chip phạm vi đang chọn, cùng định dạng "Xuất file". File nhỏ ⇒ đọc ngay trên main; store ghi một lần.
+    private func importFile(_ url: URL, mode: DataImportMode) {
+        let target = activeScope
+        let result = flavor.store.importFile(at: url, mode: mode, scope: target, bookId: bookId ?? "")
+        reload()
+        switch result {
+        case .success(let outcome):
+            let unit = target == .book ? "\(flavor.lowercasedNoun) riêng" : flavor.lowercasedNoun
+            ToastManager.shared.show(message: outcome.summary(unit: unit), type: .success)
+        case .failure(let failure):
+            AppLogger.shared.log("❌ [LọcName] Không nhập được danh sách \(flavor.lowercasedNoun): \(failure.message)")
+            ToastManager.shared.show(message: "Lỗi nhập danh sách \(flavor.lowercasedNoun): \(failure.message)", type: .error)
         }
     }
 

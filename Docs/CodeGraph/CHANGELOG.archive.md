@@ -2,6 +2,26 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1108] - 2026-11-28
+
+### feat: màn Sửa từ của màn duyệt lọc name local có hàng Tiền tố và Hậu tố cho mọi name, hiện đủ mục nằm trong cụm
+
+Plan 2026-11-27-phan-loai-name mục 7, 10, L10, L11 (anh Bửu: "Ngoài lựa chọn nhanh hãy hiển thị đủ các hậu tố và tiền tố
+nằm trong cụm", "sắp xếp theo thứ tự số từ tăng dần"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 2–3.
+
+- `LocalNameFilterSuffixQuickRow(flavor:)` dùng cho hai hàng "Tiền tố" (trên) và "Hậu tố" (dưới), hiện cho mọi loại name
+  kể cả tên người (mục mới mặc định Nhân danh); họ tộc (萧家) vẫn không có.
+- Chip ✓ cho mọi mục có sẵn nằm trong cụm, dài 1–6 chữ: hậu tố ở cuối hoặc giữa cụm (东城区血刀帮 ⇒ ✓ 区, ✓ 帮), tiền tố ở
+  đầu hoặc giữa cụm; chạm ⇒ sửa mục đó. Dấu ● trên mục đang ghép nghĩa: hậu tố dài nhất ở cuối / tiền tố dài nhất ở đầu,
+  cùng nhóm với name như bộ ghép (Nhân danh ⇄ tên người). Chip "+" cho đoạn cuối / đầu 1–3 chữ chưa có; "+ Thêm hậu tố /
+  tiền tố" (mở cả cụm) luôn cuối hàng; mọi chip xếp theo số chữ tăng dần (陈太上长老: 老 · 长老 · + 上长老 · ● 太上长老).
+- `LocalNameFilterReviewSuffixContext`: `affixKind(for:)` thay `suffixKind` (tên người ⇒ Nhân danh);
+  `enqueueRecompose(affixes:flavor:)` ghép lại name kết thúc bằng hậu tố / mở đầu bằng tiền tố vừa lưu, kể cả tên người,
+  truyền nghĩa máy ghép lần trước (giữ danh xưng 1 chữ "Lâm ca") và danh sách tiền tố hiện tại.
+- Toast "Đã thêm hậu tố / tiền tố X · ghép lại N name".
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1107] - 2026-11-28
 
 ### feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách

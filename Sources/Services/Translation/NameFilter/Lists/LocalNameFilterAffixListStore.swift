@@ -135,15 +135,15 @@ class LocalNameFilterAffixListStore {
         UserDefaults.standard.removeObject(forKey: defaultsKey)
     }
 
-    // MARK: - Nội bộ
+    // MARK: - Nội bộ (`currentOverrides` / `write` không `private` để file `+Import` đọc – trộn – ghi một lần)
 
-    private func currentOverrides() -> Overrides {
+    func currentOverrides() -> Overrides {
         decode(UserDefaults.standard.string(forKey: defaultsKey))
     }
 
     /// Lớp riêng rỗng ⇒ xoá khoá (giữ "vắng = bản gốc"; dữ liệu cũ chỉ có `enabled` cũng rơi về đây). `nil` = đã ghi;
     /// chuỗi = lỗi.
-    private func write(_ overrides: Overrides) -> String? {
+    func write(_ overrides: Overrides) -> String? {
         if overrides.isEmpty {
             UserDefaults.standard.removeObject(forKey: defaultsKey)
             return nil
