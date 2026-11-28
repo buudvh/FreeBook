@@ -28,6 +28,17 @@ extension VideoWatchModel {
         }
     }
 
+    /// Màn đang hiện bìa nhưng phim **sắp tự phát**: đang chuẩn bị phát, hoặc mục lục chưa sẵn sàng mà lượt tự phát / tự
+    /// sang phim / mục playlist sẽ phát khi sẵn sàng (`considerAutoplay`). Thể loại / Xem thêm lúc này không được đóng màn
+    /// (`cancel` huỷ luôn lượt phát) — `VideoPlayerScreen+Exit.openCategory` giữ trang đè lên màn (1.3.1120).
+    var isAboutToPlay: Bool {
+        guard !ownsSession else { return false }
+        if isPreparingPlayback { return true }
+        guard !didConsiderAutoplay else { return false }
+        if case .failed = phase { return false }
+        return VideoAutoplayPolicy.isEnabled || autoNext != nil || playlistStart != nil
+    }
+
     private func preparePlayback(episodeIndex requested: Int?, isUserInitiated: Bool, generation: Int) async {
         isPreparingPlayback = true
         defer { isPreparingPlayback = false }

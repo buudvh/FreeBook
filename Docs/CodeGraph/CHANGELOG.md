@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1120] - 2026-11-28
+
+### fix: bấm thể loại lúc màn xem đang tải phim sắp tự phát không đóng màn kẻo huỷ lượt phát
+
+Vá 1.3.1119: màn bìa (`!watchOwnsSession`) hiện cả lúc phim đang tải mà "Tự phát" bật (hoặc tự sang phim đề xuất /
+mục playlist, hoặc vừa bấm ▶ đang chuẩn bị) — bấm thể loại / Xem thêm lúc đó, lối "đóng màn rồi mở trang" chạy
+`watch.cancel()` nên phim chưa kịp phát đã bị huỷ.
+- `VideoWatchModel.isAboutToPlay` (`+Playback`): đang chuẩn bị phát, hoặc chưa xét tự phát (`didConsiderAutoplay`) mà
+  tự phát / `autoNext` / `playlistStart` sẽ phát khi mục lục sẵn sàng (phim lỗi thì không).
+- `VideoPlayerScreen+Exit.openCategory`: chỉ đóng màn bìa khi không `isAboutToPlay`; còn lại giữ trang đè lên màn xem
+  như trước 1.3.1119 (phim tải xong vẫn tự phát bên dưới, chọn phim đổi tại chỗ).
+- Ghi chú `.claude/rules/comic-video.md`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.1119] - 2026-11-28
 
 ### feat: chọn phim trong danh sách thể loại mở từ màn xem phim giữ lại danh sách, thu nhỏ phim là về lại danh sách
@@ -481,17 +494,3 @@ Anh Bửu: "sửa luôn mấy lỗi nhẹ còn lại đi" — bốn lỗi nhẹ 
 - **Sửa loại của đuôi gốc 花 không làm công tắc tự bật**: lớp riêng danh sách đuôi có trường `format` (2). Dữ liệu cũ (`format` vắng) đọc vào thì ghi rõ `enabled = true` cho 花 người dùng đã tự thêm từ trước (giữ bật như cũ); mặc định bật / tắt từ nay chỉ theo cờ `|off` của bản gốc.
 - **`Name.chapterCount`**: không màn hay luật nào dùng ⇒ không tốn công đếm lại trên chữ từng chương; ghi rõ nghĩa (hàng LAC = số chương LAC gắn nhãn thực thể; hàng bộ luật = số chương sinh ứng viên).
 - `translation.md`: ghi `readFailed` và việc bỏ dòng tên chương. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1090] - 2026-11-27
-
-### fix: lọc name local xoá gói tạm khi xoá truyện, Dừng được lúc đang tải model, toast gói tạm chỉ hiện khi đóng sheet thật
-
-Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, rà soát chéo bằng hai agent (Services: model LAC + bộ lọc; giao diện + gói tạm): không thấy lỗi biên dịch chắc chắn, hợp đồng giữa ba nhánh khớp; sửa các lỗi tìm được.
-
-- **Xoá truyện xoá luôn gói name tạm**: `BookStorageManager.deleteBookSideData` gọi `LocalNameFilterDraftStore.deleteAll` (lỗi ⇒ hàng đợi xoá lại, như ghi chú / dấu trang). `deleteAll` dọn cả bản `.broken-…` đã cất của truyện đó (Dọn rác cố ý bỏ qua các file này).
-- **"Dừng" lúc đang tải / nạp model**: trước phải chờ tải hết ~19 MB + tự kiểm mới dừng (bộ lọc chỉ xét "Dừng" trong vòng đọc chương) ⇒ nay huỷ ngay, về bước chọn với dòng "Đã dừng khi đang chuẩn bị model nhận diện tên".
-- **Toast "Đã giữ gói tạm" chỉ khi sheet đóng thật**: `onDisappear` còn chạy khi sheet chỉ bị màn toàn màn che (màn Sửa từ mở tra cứu ngoài) ⇒ gói vẫn ghi (ghi đè cùng gói), toast chỉ hiện khi `isPresented == false`.
-- **Dòng "Nạp model…" thôi quay suốt khối 24 chương đầu**: bộ lọc phát `.progress(0, tổng)` ngay khi model xong.
-- Comment / tài liệu: tên mới "đuôi địa danh, tổ chức, thuật ngữ"; `.claude/rules/translation.md` (bản LAC: hai chế độ, model `NER/`, chip loại, gói tạm), `storage.md` (`name_filter_drafts/`, `translate/LAC/`), `books-sources.md`, `ui-conventions.md`.
-- Ghi nhận, chưa sửa (nhẹ): lỗi đọc file model thoáng qua cũng xoá cả model (lần sau tải lại); `chapterCount` của hàng LAC chỉ đếm chương LAC gắn nhãn thực thể; số lần phía bộ luật tính cả dòng `第N章` nếu nội dung chương có; sửa loại của đuôi gốc 花 thì công tắc tự bật.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.

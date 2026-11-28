@@ -2,6 +2,20 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1090] - 2026-11-27
+
+### fix: lọc name local xoá gói tạm khi xoá truyện, Dừng được lúc đang tải model, toast gói tạm chỉ hiện khi đóng sheet thật
+
+Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, rà soát chéo bằng hai agent (Services: model LAC + bộ lọc; giao diện + gói tạm): không thấy lỗi biên dịch chắc chắn, hợp đồng giữa ba nhánh khớp; sửa các lỗi tìm được.
+
+- **Xoá truyện xoá luôn gói name tạm**: `BookStorageManager.deleteBookSideData` gọi `LocalNameFilterDraftStore.deleteAll` (lỗi ⇒ hàng đợi xoá lại, như ghi chú / dấu trang). `deleteAll` dọn cả bản `.broken-…` đã cất của truyện đó (Dọn rác cố ý bỏ qua các file này).
+- **"Dừng" lúc đang tải / nạp model**: trước phải chờ tải hết ~19 MB + tự kiểm mới dừng (bộ lọc chỉ xét "Dừng" trong vòng đọc chương) ⇒ nay huỷ ngay, về bước chọn với dòng "Đã dừng khi đang chuẩn bị model nhận diện tên".
+- **Toast "Đã giữ gói tạm" chỉ khi sheet đóng thật**: `onDisappear` còn chạy khi sheet chỉ bị màn toàn màn che (màn Sửa từ mở tra cứu ngoài) ⇒ gói vẫn ghi (ghi đè cùng gói), toast chỉ hiện khi `isPresented == false`.
+- **Dòng "Nạp model…" thôi quay suốt khối 24 chương đầu**: bộ lọc phát `.progress(0, tổng)` ngay khi model xong.
+- Comment / tài liệu: tên mới "đuôi địa danh, tổ chức, thuật ngữ"; `.claude/rules/translation.md` (bản LAC: hai chế độ, model `NER/`, chip loại, gói tạm), `storage.md` (`name_filter_drafts/`, `translate/LAC/`), `books-sources.md`, `ui-conventions.md`.
+- Ghi nhận, chưa sửa (nhẹ): lỗi đọc file model thoáng qua cũng xoá cả model (lần sau tải lại); `chapterCount` của hàng LAC chỉ đếm chương LAC gắn nhãn thực thể; số lần phía bộ luật tính cả dòng `第N章` nếu nội dung chương có; sửa loại của đuôi gốc 花 thì công tắc tự bật.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1089] - 2026-11-27
 
 ### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè

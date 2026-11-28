@@ -58,7 +58,8 @@ extension VideoPlayerScreen {
     ///
     /// Màn đang hiện bìa (phim khác chạy nền) ⇒ cùng lối, chỉ đóng màn (không có phim của màn để thu nhỏ; phim nền không bị
     /// đụng tới) rồi mở trang (1.3.1119) — nút `‹` của trang về màn bên dưới, không về lại bìa. Phim nhúng trang (thu nhỏ là
-    /// trang nhúng chết) hoặc khung phim đang thu nhỏ dở ⇒ giữ kiểu cũ: trang đè lên màn xem, chọn phim thì đổi tại chỗ.
+    /// trang nhúng chết), bìa lúc phim **sắp tự phát** (`VideoWatchModel.isAboutToPlay`, 1.3.1120 — đóng màn là huỷ lượt phát)
+    /// hoặc khung phim đang thu nhỏ dở ⇒ giữ kiểu cũ: trang đè lên màn xem, chọn phim thì đổi tại chỗ.
     private func openCategory(_ category: CategoryResult, from watch: VideoWatchModel) {
         guard !isLeaving else { return }
         // Chụp giá trị thường, không giữ `watch`: trang mở khi màn (và model) đã đi.
@@ -73,7 +74,7 @@ extension VideoPlayerScreen {
                 modelContainer: container
             )
         }
-        if !watchOwnsSession, !controller.minimizeDrag.isCommitted {
+        if !watchOwnsSession, !watch.isAboutToPlay, !controller.minimizeDrag.isCommitted {
             AppLogger.shared.log("🎬 [VideoWatch] Bấm '\(category.title)' lúc màn hiện bìa ⇒ đóng màn xem rồi mở trang")
             leave(stopPlayback: false, then: openPageAfterClose)
             return
