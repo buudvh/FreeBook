@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1119] - 2026-11-28
+
+### feat: chọn phim trong danh sách thể loại mở từ màn xem phim giữ lại danh sách, thu nhỏ phim là về lại danh sách
+
+Anh Bửu: vào danh sách video từ màn xem phim, bấm một video khác rồi thu nhỏ hay bấm cửa sổ nhỏ thì phải về lại danh sách
+vừa mở, không về màn đầu.
+- `VideoWatchPagePresenter.openCategory(_:packageId:sourceName:modelContainer:)` (trang mở sau khi màn xem đóng): chọn
+  phim ⇒ **không đóng trang** nữa, gọi thẳng `VideoWatchPresenter.present` ⇒ màn xem mới nằm trên trang (dùng lại lối
+  "màn xem mở lại từ cửa sổ nhỏ nằm trên trang" đã có từ 1.3.781: hướng xoay, `closeAllPages` trước khi đổi tab).
+  Vuốt xuống / ⌄ / nút Cửa sổ nhỏ chỉ đóng màn xem (`dismissCoveringPage` bỏ qua trang không đè lên màn) ⇒ về danh sách.
+- `VideoPlayerScreen+Exit.openCategory`: màn đang hiện bìa (phim khác chạy nền) bấm thể loại / Xem thêm ⇒ đóng màn
+  (`leave(stopPlayback: false)`, phim nền không bị đụng) rồi mở trang như lúc phim đang phát; `‹` ở trang về màn bên
+  dưới, không về lại bìa (anh chọn). Phim nhúng trang (thu nhỏ là trang nhúng chết) giữ trang đè lên màn xem, chọn phim
+  đổi tại chỗ.
+- Giữ nguyên: `‹` của trang về màn gốc; bấm thể loại khác trong phim mới ⇒ trang mới thay trang cũ; nút Home về Khám phá
+  và đóng luôn trang. Màn nghe nhạc không có trang danh sách mở từ trong nó nên không đổi.
+- Ghi chú: `.claude/rules/comic-video.md`. Chưa build (Windows), chưa thử máy.
+
 ## [1.3.1118] - 2026-11-28
 
 ### docs: ghi chú lọc name local cho tiền tố hậu tố riêng truyện, tên kiểu Latin, luật L16, nút ▼ xuất file và hàng Phân loại
@@ -477,7 +495,3 @@ Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, 
 - Comment / tài liệu: tên mới "đuôi địa danh, tổ chức, thuật ngữ"; `.claude/rules/translation.md` (bản LAC: hai chế độ, model `NER/`, chip loại, gói tạm), `storage.md` (`name_filter_drafts/`, `translate/LAC/`), `books-sources.md`, `ui-conventions.md`.
 - Ghi nhận, chưa sửa (nhẹ): lỗi đọc file model thoáng qua cũng xoá cả model (lần sau tải lại); `chapterCount` của hàng LAC chỉ đếm chương LAC gắn nhãn thực thể; số lần phía bộ luật tính cả dòng `第N章` nếu nội dung chương có; sửa loại của đuôi gốc 花 thì công tắc tự bật.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1089] - 2026-11-27
-
-### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè

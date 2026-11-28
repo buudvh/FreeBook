@@ -53,22 +53,19 @@ extension VideoPlayerScreen {
     /// Thể loại / "Xem thêm ›" lúc màn **đang phát phim của nó** (không nhúng trang): co khung phim vào cửa sổ nhỏ như nút
     /// "Cửa sổ nhỏ" của thanh trên (đang ngang / toàn màn dọc thì xoay về trước), đóng màn rồi mới mở trang danh sách —
     /// mở sớm hơn thì `performDismiss` (đóng trang đè lên màn trước) đóng luôn trang. Trang lúc đó không còn
-    /// `VideoWatchModel` ⇒ chọn phim trong trang mở màn xem mới theo lối thường; chạm cửa sổ nhỏ để mở lại màn xem.
+    /// `VideoWatchModel` ⇒ chọn phim trong trang mở màn xem mới **đè lên trang** (1.3.1119), thu nhỏ phim đó là về lại
+    /// danh sách; chạm cửa sổ nhỏ để mở lại màn xem.
     ///
-    /// Màn đang hiện bìa (phim khác chạy nền) hoặc phim nhúng trang (không vào cửa sổ nhỏ được) ⇒ giữ kiểu cũ: trang đè lên
-    /// màn xem, chọn phim thì đổi tại chỗ.
+    /// Màn đang hiện bìa (phim khác chạy nền) ⇒ cùng lối, chỉ đóng màn (không có phim của màn để thu nhỏ; phim nền không bị
+    /// đụng tới) rồi mở trang (1.3.1119) — nút `‹` của trang về màn bên dưới, không về lại bìa. Phim nhúng trang (thu nhỏ là
+    /// trang nhúng chết) hoặc khung phim đang thu nhỏ dở ⇒ giữ kiểu cũ: trang đè lên màn xem, chọn phim thì đổi tại chỗ.
     private func openCategory(_ category: CategoryResult, from watch: VideoWatchModel) {
         guard !isLeaving else { return }
-        guard watchOwnsSession, session.embedContent == nil, !controller.minimizeDrag.isCommitted else {
-            VideoWatchPagePresenter.openCategory(category, model: watch)
-            return
-        }
         // Chụp giá trị thường, không giữ `watch`: trang mở khi màn (và model) đã đi.
         let packageId = watch.request.packageId
         let sourceName = watch.request.sourceName
         let container = watch.modelContainer
-        AppLogger.shared.log("🎬 [VideoWatch] Bấm '\(category.title)' ⇒ phim vào cửa sổ nhỏ, đóng màn xem rồi mở trang")
-        minimizeToMiniPlayer {
+        let openPageAfterClose = {
             VideoWatchPagePresenter.openCategory(
                 category,
                 packageId: packageId,
@@ -76,6 +73,17 @@ extension VideoPlayerScreen {
                 modelContainer: container
             )
         }
+        if !watchOwnsSession, !controller.minimizeDrag.isCommitted {
+            AppLogger.shared.log("🎬 [VideoWatch] Bấm '\(category.title)' lúc màn hiện bìa ⇒ đóng màn xem rồi mở trang")
+            leave(stopPlayback: false, then: openPageAfterClose)
+            return
+        }
+        guard watchOwnsSession, session.embedContent == nil, !controller.minimizeDrag.isCommitted else {
+            VideoWatchPagePresenter.openCategory(category, model: watch)
+            return
+        }
+        AppLogger.shared.log("🎬 [VideoWatch] Bấm '\(category.title)' ⇒ phim vào cửa sổ nhỏ, đóng màn xem rồi mở trang")
+        minimizeToMiniPlayer(then: openPageAfterClose)
     }
 
     // MARK: - Thu vào hub theo yêu cầu của dịch vụ

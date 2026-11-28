@@ -5,10 +5,12 @@ import UIKit
 /// **Trang toàn màn của màn xem phim** (1.3.744) — thay cho sheet lớn cũ (`VideoWatchPresenter.presentPage`). Hai cách mở:
 /// - **Đè lên màn xem** (`coversWatchScreen`): màn xem vẫn gắn bên dưới, phim vẫn phát. Dùng cho bấm một đề xuất **không
 ///   phải phim** (`openDetail` ⇒ `BookDetailView`), và cho thể loại / "Xem thêm ›" khi màn đang hiện bìa (phim khác chạy
-///   nền) hoặc đang phát phim nhúng trang (`openCategory(_:model:)`). Phim không bao giờ mở trang Chi tiết kiểu cũ: bấm
-///   phim là đổi phim tại chỗ, `⋮` của thẻ không còn "Mở trang chi tiết".
-/// - **Sau khi màn xem đã đóng** (thể loại / Xem thêm lúc màn đang phát phim của nó): `VideoPlayerScreen` co phim vào cửa
-///   sổ nhỏ, đóng màn rồi mới gọi `openCategory(_:packageId:sourceName:modelContainer:)`. Không còn `VideoWatchModel`.
+///   nền) hoặc đang phát phim nhúng trang (`openCategory(_:model:)`). Từ 1.3.1119 thể loại / Xem thêm chỉ đi lối này khi
+///   phim nhúng trang (thu nhỏ là trang nhúng chết). Phim không bao giờ mở trang Chi tiết kiểu cũ: bấm phim là đổi phim
+///   tại chỗ, `⋮` của thẻ không còn "Mở trang chi tiết".
+/// - **Sau khi màn xem đã đóng** (thể loại / Xem thêm lúc màn đang phát phim của nó, hoặc đang hiện bìa — 1.3.1119):
+///   `VideoPlayerScreen` co phim vào cửa sổ nhỏ (màn bìa thì chỉ đóng màn), đóng màn rồi mới gọi
+///   `openCategory(_:packageId:sourceName:modelContainer:)`. Không còn `VideoWatchModel`.
 ///
 /// ## Cách trình bày
 /// - `UIHostingController` `.overFullScreen` lên VC trên cùng (cùng cách tìm với `VideoWatchPresenter`). **Không**
@@ -22,7 +24,8 @@ import UIKit
 /// ## Bấm phim trong trang
 /// - Trang đè lên màn xem ⇒ đóng trang trước, **lượt sau** mới đổi phim tại chỗ (`VideoWatchModel.replace`) — mẫu
 ///   `BookActionSheet.emit`: đổi trong lúc trang đang đóng thì hai lượt chuyển cảnh chọi nhau.
-/// - Trang mở sau khi màn đóng ⇒ đóng trang rồi mở màn xem mới theo lối thường (`VideoWatchPresenter.present`).
+/// - Trang mở sau khi màn đóng ⇒ **giữ trang**, mở màn xem mới theo lối thường (`VideoWatchPresenter.present`) đè lên
+///   trang (1.3.1119) — màn xem nằm dưới trang như mục "Trang nằm dưới màn xem" bên dưới, thu nhỏ phim là về danh sách.
 /// - Nguồn khác ⇒ `CategoryNovelsListView` đẩy Chi tiết ngay trong trang (hành vi mặc định).
 ///
 /// ## Trang nằm **dưới** màn xem
@@ -64,8 +67,8 @@ final class VideoWatchPagePresenter {
 
     // MARK: - Lối của màn xem
 
-    /// Danh sách một thể loại / một nhóm đề xuất, **đè lên** màn xem (màn hiện bìa hoặc phim nhúng trang). Chọn phim ⇒
-    /// đóng trang rồi đổi phim tại chỗ.
+    /// Danh sách một thể loại / một nhóm đề xuất, **đè lên** màn xem (phim nhúng trang, hoặc khung phim đang thu nhỏ dở —
+    /// màn hiện bìa đi lối sau-khi-đóng từ 1.3.1119). Chọn phim ⇒ đóng trang rồi đổi phim tại chỗ.
     static func openCategory(_ category: CategoryResult, model: VideoWatchModel) {
         let packageId = model.request.packageId
         let sourceName = model.request.sourceName
@@ -78,19 +81,20 @@ final class VideoWatchPagePresenter {
         }
     }
 
-    /// Danh sách một thể loại / một nhóm đề xuất, mở **sau khi** màn xem đã đóng (phim ở cửa sổ nhỏ). Chọn phim ⇒ đóng
-    /// trang rồi mở màn xem mới theo lối thường.
+    /// Danh sách một thể loại / một nhóm đề xuất, mở **sau khi** màn xem đã đóng (phim ở cửa sổ nhỏ, hoặc màn hiện bìa vừa
+    /// đóng). Chọn phim ⇒ **giữ trang**, mở màn xem mới đè lên nó (1.3.1119): thu nhỏ / ⌄ / Cửa sổ nhỏ chỉ đóng màn xem
+    /// (`performDismiss` bỏ qua trang không đè lên màn) ⇒ về lại đúng danh sách này, không về màn gốc tab.
     static func openCategory(
         _ category: CategoryResult,
         packageId: String,
         sourceName: String,
         modelContainer: ModelContainer
     ) {
-        AppLogger.shared.log("🎬 [VideoWatch] Mở trang '\(category.title)' sau khi màn xem đóng (phim ở cửa sổ nhỏ)")
-        present(modelContainer: modelContainer, coversWatchScreen: false) { page in
+        AppLogger.shared.log("🎬 [VideoWatch] Mở trang '\(category.title)' sau khi màn xem đóng")
+        present(modelContainer: modelContainer, coversWatchScreen: false) { _ in
             categoryList(category, packageId: packageId, sourceName: sourceName) { request in
-                AppLogger.shared.log("🎬 [VideoWatch] Chọn phim trong trang ⇒ đóng trang, mở màn xem mới")
-                page.close { VideoWatchPresenter.present(request, modelContainer: modelContainer) }
+                AppLogger.shared.log("🎬 [VideoWatch] Chọn phim trong trang ⇒ giữ trang, mở màn xem đè lên")
+                VideoWatchPresenter.present(request, modelContainer: modelContainer)
             }
         }
     }
