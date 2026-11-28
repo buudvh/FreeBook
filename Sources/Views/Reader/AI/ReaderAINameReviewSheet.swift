@@ -1,11 +1,15 @@
 import SwiftUI
+import SwiftData
 
 /// Bottom sheet hiển thị danh sách tên riêng trích xuất từ tin nhắn AI với hiệu ứng Skeleton bất đồng bộ.
 ///
-/// Từ 1.3.469 nút Lưu nằm trên **thanh điều hướng** (`.confirmationAction`) dưới dạng `Menu` 2 mục —
-/// đúng khuôn `AddWordSheet` — thay cho hai nút `Lưu Name riêng` / `Lưu VP riêng` ở đáy card. Bấm một mục ⇒ có name đã
-/// có trong file đích của truyện thì hỏi cách lưu bằng popup ba chế độ như nhập file (`+Save`, plan
-/// 2026-11-27-phan-loai-name L16), toàn name mới thì lưu thẳng.
+/// Góc phải header là nút **▼** (tam giác đặc; mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M1, mục C8
+/// — thay chữ "Lưu" có từ 1.3.469) mở `Menu` ba mục:
+/// - "Lưu vào Name riêng" / "Lưu vào VP riêng": có name đã có trong file đích của truyện thì hỏi cách lưu bằng popup ba
+///   chế độ như nhập file (`+Save`, plan 2026-11-27-phan-loai-name L16), toàn name mới thì lưu thẳng;
+/// - ngăn cách, "Xuất file" (dòng phụ: số mục sẽ xuất): ghi đúng tập mục Lưu sẽ ghi ra `Name_<tên truyện>_<ngày giờ>.txt`
+///   rồi mở bảng chia sẻ (`+Export`).
+/// Chưa tích mục nào ⇒ hai mục Lưu mờ; không có dòng nào để xuất ⇒ "Xuất file" mờ. Menu luôn mở được.
 public struct ReaderAINameReviewSheet: View {
     public struct Target: Identifiable, Sendable {
         public let id = UUID()
@@ -52,8 +56,13 @@ public struct ReaderAINameReviewSheet: View {
     /// Luồng lọc local: hàng "Tiền tố" + "Hậu tố" ở màn Sửa từ của mọi name trừ họ tộc + ghép lại nghĩa ngay sau khi thêm /
     /// sửa một mục (plan 2026-11-27-nghia-ten-tay-huyen mục 7, 2026-11-27-phan-loai-name L10 / L11, `+Edit`). Luồng AI: `nil`.
     let localSuffixContext: LocalNameFilterReviewSuffixContext?
+    /// Tên truyện cho tên file "Xuất file" (`+Export`) — luồng AI truyền tên đang hiện ở màn AI (màn đó có thể mở bằng UIKit,
+    /// môi trường không có `ModelContainer`). `nil` (luồng lọc local) ⇒ tra `Book` theo `bookId` trong `modelContext`.
+    let exportBookTitle: String?
     /// `\.sheetPageBack` của nơi trình bày — trả lại cho sheet Sửa từ để nút ‹ của màn duyệt không lan vào đó.
     @Environment(\.sheetPageBack) private var inheritedSheetPageBack
+    // `internal` (không `private`): `+Export` tra tên truyện; chỉ đọc khi `exportBookTitle == nil`.
+    @Environment(\.modelContext) var modelContext
 
     @State private var isLoading: Bool = true
     // `internal` (không `private`): `ReaderAINameReviewSheet+Edit.swift` dùng chung.
@@ -65,6 +74,8 @@ public struct ReaderAINameReviewSheet: View {
     @State var pendingExistingCount: Int = 0
     @State var showingSavePopup: Bool = false
     @State var isCheckingSaveTarget: Bool = false
+    /// File "Xuất file" đang đưa cho bảng chia sẻ (`+Export`).
+    @State var exportedFile: ExportedFile? = nil
     /// Khoá đang gạch (luồng AI) — khởi tạo từ tin nguồn, mỗi lần gạch / bỏ gạch ghi ngay qua `onStrikeName`.
     // `internal` (không `private`): `+Edit` bỏ gạch khoá đích khi người dùng sửa một name thành khoá đang gạch.
     @State var struckKeys: Set<String>
@@ -75,13 +86,15 @@ public struct ReaderAINameReviewSheet: View {
         struckKeys: Set<String> = [],
         onSave: @escaping ([AIExtractedName], Bool, DataImportMode) -> Void,
         onStrikeName: @escaping (String, Bool) -> Void = { _, _ in },
-        onEditName: @escaping (AINameEdit) -> Void = { _ in }
+        onEditName: @escaping (AINameEdit) -> Void = { _ in },
+        exportBookTitle: String? = nil
     ) {
         self.content = content
         self.bookId = bookId
         self.onSave = onSave
         self.onStrikeName = onStrikeName
         self.onEditName = onEditName
+        self.exportBookTitle = exportBookTitle
         self.prefilledNames = nil
         self.initialSortMode = .selectedFirst
         self.onBlockName = nil
@@ -109,6 +122,7 @@ public struct ReaderAINameReviewSheet: View {
         self.onSave = onSave
         self.onStrikeName = { _, _ in }
         self.onEditName = { _ in }
+        self.exportBookTitle = nil
         self.prefilledNames = names
         self.initialSortMode = .notInDictionaryFirst
         self.onBlockName = onBlockName
@@ -203,14 +217,7 @@ public struct ReaderAINameReviewSheet: View {
             .pageTitle("Duyệt tên riêng & VP", style: onBack == nil ? .leading : .centered)
             .presentationDragIndicator(.visible)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Menu("Lưu") {
-                        Button("Lưu vào Name riêng") { requestSave(isName: true) }
-                        Button("Lưu vào VP riêng") { requestSave(isName: false) }
-                    }
-                    .headerTextButton()
-                    .disabled(selectedCount == 0)
-                }
+                ToolbarItem(placement: .topBarTrailing) { saveMenu }
             }
             // Có name đã có trong file đích ⇒ popup ba cách lưu như nhập file (`+Save`); "Gộp" chọn sẵn.
             .dataImportModePopup(
@@ -230,6 +237,8 @@ public struct ReaderAINameReviewSheet: View {
                 .appGlassSheet()
                 .environment(\.sheetPageBack, inheritedSheetPageBack)
             }
+            // Bảng chia sẻ hệ thống — không gắn `.appGlassSheet()`.
+            .sheet(item: $exportedFile) { file in exportShareSheet(for: file) }
             .onChange(of: names) { _, newNames in
                 onNamesChange?(newNames)
             }
@@ -244,6 +253,29 @@ public struct ReaderAINameReviewSheet: View {
         }
         // Đặt **ngoài** `NavigationStack` (khuôn `SheetPageBackEnvironment`); luồng AI giữ nguyên giá trị kế thừa.
         .environment(\.sheetPageBack, onBack ?? inheritedSheetPageBack)
+    }
+
+    /// Nút ▼ góc phải header (khung M1): icon chuẩn header 17pt nửa đậm, mép phải chạm lề.
+    private var saveMenu: some View {
+        Menu {
+            Button { requestSave(isName: true) } label: { Label("Lưu vào Name riêng", systemImage: "person.fill") }
+                .disabled(selectedCount == 0)
+            Button { requestSave(isName: false) } label: { Label("Lưu vào VP riêng", systemImage: "character.book.closed") }
+                .disabled(selectedCount == 0)
+            Divider()
+            let exportCount = recordsToSave.count
+            Button { exportSelectedNames() } label: {
+                Label("Xuất file", systemImage: "square.and.arrow.up")
+                Text("\(exportCount) mục đang tích")
+            }
+            .disabled(exportCount == 0)
+        } label: {
+            Image(systemName: "arrowtriangle.down.fill")
+                .font(.system(size: HeaderMetrics.iconFontSize, weight: .semibold))
+                .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Lưu hoặc xuất name")
     }
 
     private func loadAndDecorateNames() async {

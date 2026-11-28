@@ -2,6 +2,33 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1113] - 2026-11-28
+
+### feat: màn duyệt tên riêng có nút ▼ thay chữ Lưu, menu thêm Xuất file các mục đang tích
+
+Mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M1, mục C8 (anh Bửu chốt: nút ▼ thay chữ Lưu, xuất mục
+đang tích). Áp cho cả luồng AI và Lọc name local (`ReaderAINameReviewSheet`).
+
+- Góc phải header: icon `arrowtriangle.down.fill` 17pt nửa đậm, khung `HeaderMetrics.iconFrameWidth` ×
+  `iconFrameHeight` canh phải (mép icon chạm lề), `ToolbarItem(.topBarTrailing)`, nhãn trợ năng "Lưu hoặc xuất name".
+  Menu luôn mở được: "Lưu vào Name riêng" (person.fill) · "Lưu vào VP riêng" (character.book.closed) — giữ y hành vi cũ
+  kể cả popup ba cách lưu, mờ khi chưa tích mục nào — · ngăn cách · "Xuất file" (square.and.arrow.up, dòng phụ "N mục
+  đang tích"), mờ khi không có dòng nào để xuất.
+- Xuất file (`ReaderAINameReviewSheet+Export`): nội dung là **đúng** tập Lưu sẽ ghi — `recordsToSave` mới ở `+Save`
+  (mục đang tích, luồng AI bỏ hàng gạch, khoá đã trim, nghĩa `normalizeMeaning`, khoá lặp giữ mục đầu, cùng luật
+  `AIHarnessService.saveExtractedEntries`); phép đếm "đã có" của popup Lưu cũng đọc từ đây. Mỗi dòng `chữ Hán=nghĩa`
+  UTF-8, file `Name_<tên truyện>_<yyyyMMddHHmmss>.txt` ở thư mục tạm, mở `ShareSheet` (không kính); ghi lỗi ⇒ toast lỗi
+  + log ❌; chia sẻ xong toast "Xuất file name thành công!".
+- Đặt tên file tách thành `DictionaryExportFileName` (Views/Dictionary) dùng chung với danh sách VP / Name
+  (`DictionaryListView.generateExportURL`): tên truyện DB ⇒ tên truyền vào ⇒ `bookId` ⇒ "Chung", luôn dịch qua
+  `ChineseTextPipeline.meta` (phồn → giản theo truyện), bỏ ký tự cấm; `exportNameOptions` dời vào đó. Tên file danh sách
+  VP / Name không đổi.
+- Tên truyện: luồng lọc local tra `Book` theo `bookId` trong `modelContext` (chỉ khi container có `Book` trong schema,
+  không thì lùi về `bookId`); luồng AI nhận `exportBookTitle` = tên truyện màn AI đang hiện (màn AI có thể mở bằng
+  UIKit, không có `ModelContainer`) nên tên file luồng AI theo tên hiển thị.
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1112] - 2026-11-28
 
 ### feat: lọc name local tách tiền tố hậu tố khỏi tên Latin, luật L16 theo hậu tố khi lõi là tên Latin, thêm tiền tố hậu tố riêng truyện
@@ -422,16 +449,3 @@ Phần giao diện của đợt "Lọc name local bằng LAC" (plan `Docs/Plans/
 - Nhãn loại của đuôi lấy từ nhóm name (`SuffixKind.category.label`): `sect` hiện là "Tổ chức", thêm "Thuật ngữ" (`SuffixKind.term`); ô Loại ở màn Sửa từ của đuôi có ba lựa chọn.
 - Dòng "Ví dụ" của màn Sửa từ đổi theo loại: thuật ngữ dùng 五气 ⇒ "Ví dụ: 五气丹 → Ngũ Khí đan", địa danh / tổ chức giữ 江海.
 - Lời giải thích "?" và dòng danh sách trống nói cả tổ chức / thuật ngữ.
-
-## [1.3.1086] - 2026-11-27
-
-### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
-
-### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
-
-Plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục D (anh Bửu duyệt 2026-11-27).
-
-- `NameFilterSuffixes.txt` 103 đuôi: thêm 40 đuôi loại `term` (神诀 真诀 心法 剑法 功法 真经 宝体 圣体 诀 经 功 丹 鼎 舟 符 箓 阵 珠 镜 氅 袍 甲 旗 钟 炉 剑 刀 枪 印 芝 果 草 盾 轮 花 瘴 术 蟒 鲤 兽), nghĩa Hán-Việt viết thường đặt sau theo bảng phiên âm (旗 = kì, 鲤 = lí).
-- Xét từng đuôi trên 6 truyện: chỉ **花** phân loại sai tên người (李翠花) ngang số mục đúng ⇒ tắt sẵn; 芝 gặp một tên người (宋韵芝) nhưng 2/3 đúng ⇒ giữ. **关** tắt sẵn (cùng 路 区 观 团).
-- Ghi đè cũ của người dùng giữ nguyên: bật / tắt đuôi gốc vẫn theo `enabled`; ai đã tự thêm đuôi 花 (loại địa danh / tông môn) trước bản này vẫn bật (`LocalNameFilterSuffixOverrides.bundledOffLater`). Parser / store nhận `term` qua `SuffixKind`.
-- Chú thích đổi tên danh sách thành "Đuôi địa danh, tổ chức, thuật ngữ" (loại `sect` giữ chữ cũ, hiển thị "Tổ chức").

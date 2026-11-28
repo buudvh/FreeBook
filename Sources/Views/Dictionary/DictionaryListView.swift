@@ -590,14 +590,6 @@ struct DictionaryListView: View {
         return try? DictionaryTextFileStore.parseRecords(from: fileURL)
     }
 
-    private func normalizeFileName(_ name: String) -> String {
-        let invalidChars = CharacterSet(charactersIn: "/\\:*?\"<>|")
-        var result = name.components(separatedBy: invalidChars).joined(separator: "_")
-        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        if result.isEmpty { result = "Unknown" }
-        return result
-    }
-
     private func getBookFromDB() -> Book? {
         guard let bookId = bookId else { return nil }
         let descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
@@ -605,35 +597,16 @@ struct DictionaryListView: View {
     }
 
     private func generateExportURL() -> URL? {
-        let tempDir = FileManager.default.temporaryDirectory
-        
-        let namePart: String
         let dbBook = getBookFromDB()
-        let nameOptions = Self.exportNameOptions(bookId: bookId, packageId: dbBook?.extensionPackageId)
-        if let dbName = dbBook?.title, !dbName.isEmpty {
-            let translated = ChineseTextPipeline.meta(dbName, nameOptions)
-            namePart = translated.isEmpty ? dbName : translated
-        } else if !bookName.isEmpty {
-            let translated = ChineseTextPipeline.meta(bookName, nameOptions)
-            namePart = translated.isEmpty ? bookName : translated
-        } else {
-            namePart = bookId ?? "Chung"
-        }
-        
-        let safeName = normalizeFileName(namePart)
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMddHHmmss"
-        let timestamp = formatter.string(from: Date())
-        
-        let prefix = type == .names ? "Name" : "VietPhrase"
-        let fileName = "\(prefix)_\(safeName)_\(timestamp).txt"
-        
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        let content = exportText()
+        let fileName = DictionaryExportFileName.make(
+            prefix: type == .names ? "Name" : "VietPhrase",
+            dbTitle: dbBook?.title,
+            fallbackTitle: bookName,
+            bookId: bookId,
+            packageId: dbBook?.extensionPackageId
+        )
         do {
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
+            return try DictionaryExportFileName.writeTemporaryFile(exportText(), named: fileName)
         } catch {
             AppLogger.shared.log("❌ Lỗi ghi file từ điển xuất: \(error.localizedDescription)")
             return nil

@@ -264,9 +264,8 @@ public struct ReaderAIFullScreenView: View {
                         onStrikeName: { key, struck in
                             setNameStruck(key: key, struck: struck, inMessage: target.messageId)
                         },
-                        onEditName: { edit in
-                            applyNameEdit(edit, toMessage: target.messageId)
-                        }
+                        onEditName: { edit in applyNameEdit(edit, toMessage: target.messageId) },
+                        exportBookTitle: bookTitle
                     )
                 }
                 .appGlassSheet()

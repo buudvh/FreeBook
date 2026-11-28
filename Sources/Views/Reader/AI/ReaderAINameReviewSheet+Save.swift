@@ -36,16 +36,24 @@ extension ReaderAINameReviewSheet {
         "\(pendingNewCount) name mới · \(pendingExistingCount) đã có trong \(Self.saveTargetLabel(isName: pendingIsName))"
     }
 
-    /// Khoá sẽ được ghi — cùng bộ lọc với `AIHarnessService.saveExtractedEntries`: mục đang chọn, không gạch, khoá đã trim và
-    /// nghĩa đã chuẩn hoá đều không rỗng.
-    private var keysToSave: Set<String> {
-        var keys = Set<String>()
+    /// Các dòng `khoá=nghĩa` Lưu sẽ ghi — cùng bộ lọc với `AIHarnessService.saveExtractedEntries`: mục đang chọn, không gạch,
+    /// khoá đã trim và nghĩa đã chuẩn hoá đều không rỗng, khoá lặp chỉ giữ mục đầu. **Một** nguồn cho phép đếm "đã có" lúc
+    /// Lưu và cho nút ▼ › "Xuất file" (`+Export`: số mục ở dòng phụ + nội dung file).
+    var recordsToSave: [DictionaryTextRecord] {
+        var seenKeys = Set<String>()
+        var records: [DictionaryTextRecord] = []
         for item in names where item.isSelected && !isStruck(item) {
             let key = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !DictionaryTextFileStore.normalizeMeaning(item.suggestedMeaning).isEmpty else { continue }
-            keys.insert(key)
+            let value = DictionaryTextFileStore.normalizeMeaning(item.suggestedMeaning)
+            guard !key.isEmpty, !value.isEmpty, seenKeys.insert(key).inserted else { continue }
+            records.append(DictionaryTextRecord(key: key, value: value))
         }
-        return keys
+        return records
+    }
+
+    /// Khoá sẽ được ghi (`recordsToSave`).
+    private var keysToSave: Set<String> {
+        Set(recordsToSave.map(\.key))
     }
 
     /// Bước 1: đọc file đích của truyện (ngoài main) ⇒ không name nào đã có thì lưu thẳng ("Gộp"), có thì mở popup.
