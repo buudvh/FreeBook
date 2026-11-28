@@ -2,6 +2,36 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1112] - 2026-11-28
+
+### feat: lọc name local tách tiền tố hậu tố khỏi tên Latin, luật L16 theo hậu tố khi lõi là tên Latin, thêm tiền tố hậu tố riêng truyện
+
+Plan "Tiền tố hậu tố riêng truyện" (anh Bửu duyệt 2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2)
+phần A + B4–B5, chép đúng bản tham chiếu `Docs/Plans/local-name-filter-lac/name_meaning.py` (`latin_affixed`) và
+`lacpipe.py` (`latin_core`, L16).
+
+- A1 tên kiểu Latin: `LocalNameFilterProperNames.latinAffixed` (file mới `+Latin`) bỏ tiền tố ở đầu (danh sách Tiền tố,
+  mọi loại) và / hoặc hậu tố ở cuối (mọi mục danh sách Hậu tố, kể cả Nhân danh, 1–6 chữ), dài nhất trước, ít nhất một
+  phía; lõi ≥ 2 chữ, không dấu ngăn, ra tên Latin qua `latinName(of:)` và khác âm Hán-Việt ⇒ "tiền tố + Latin + hậu tố"
+  theo vị trí. `LocalNameFilterMeaningBuilder` gọi ngay sau `nameLike` ở cả hàng bộ luật lẫn hàng phía LAC, mọi loại trừ
+  họ tộc; tên người vẫn báo danh xưng. 古赫密斯语 ⇒ "cổ Hermes ngữ", 古弗萨克语 ⇒ "cổ Fusak ngữ", bật Latin: 鲁恩语 ⇒
+  "Ruen ngữ", 莫里安语 ⇒ "Morian ngữ". `LocalNameFilterProperNames.init` thêm `affixes:` bắt buộc.
+- A2 L16 (`LocalNameFilterLACPipeline+Kind`): LAC bảo người + đuôi yếu + hậu tố địa danh / tổ chức, sau L2 / L1: phần
+  trước hậu tố (hoặc nó bỏ một tiền tố của danh sách) có ≥ 1 nghĩa từ điển (tách `/` `|` `;`) là chữ Latin khác âm
+  Hán-Việt, khoá có chữ phiên âm ⇒ theo hậu tố (`hasLatinCore`), không theo công tắc Latin. 霍伊河 Nhân danh ⇒ Địa danh
+  ("Hoắc Y hà", bật Latin "Khoy hà"), 苏尼亚海 ⇒ Địa danh "Sonia hải". `LocalNameFilterLACPipeline` thêm `properNames`.
+- A3 `LocalNameFilterMeaningComposer.rulesVersion = 3` ⇒ mọi gói tạm ghép lại một lần (nghĩa đã sửa tay giữ).
+- B4 kho riêng truyện `LocalNameFilterBookAffixStore` (`.suffixes` / `.prefixes`, `UserDefaults`
+  `localNameFilterBookSuffixes` / `localNameFilterBookPrefixes` = JSON theo `bookId`, Backup tự gói): thêm / sửa / xoá
+  cùng luật khoá + nghĩa với danh sách Chung, trùng khoá trong truyện ⇒ lỗi. Đổi nguồn gộp theo khoá (mục truyện cũ
+  thắng), xoá truyện / bản cũ sau mốc chốt xoá theo (`BookSourceMigrator`, `BookStorageManager.deleteBookSideData`).
+- B5 danh sách hiệu lực = Riêng + Chung, Riêng thắng cùng chữ: `LocalNameFilterAffixListStore.effective(bookId:)`,
+  `LocalNameFilterSuffixStore.allSuffixes(bookId:)`, `LocalNameFilterPrefixStore.allPrefixes(bookId:)`; thao tác theo
+  phạm vi R | C + chuyển R ↔ C (`+Scope`: `Scope`, `ScopedKey`, `keyError(_:scope:bookId:original:)`,
+  `save(...scope:bookId:original:)`, `delete(key:scope:bookId:)`). Sheet Lọc name local, gói tạm tự cập nhật, dấu gói
+  tạm, ghép lại ở màn duyệt đổi sang bản theo truyện; `signature` / composer / `DraftRefresher.Inputs` bỏ mặc định
+  `prefixes`. Bộ dò `detectionSuffixes` không đổi; giao diện chưa đổi.
+
 ## [1.3.1111] - 2026-11-28
 
 ### fix: lọc name local ghép nghĩa bằng hậu tố dài nhất cho cả name của bộ luật, tên kiểu Hán luôn bóc tiền tố hậu tố thay vì lấy nghĩa VP cả cụm

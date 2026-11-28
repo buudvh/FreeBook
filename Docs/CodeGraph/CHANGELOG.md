@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1142] - 2026-11-28
+
+### feat: mở lại gói tạm của lọc name local thì bỏ tích hết và chỉ tích name chưa có trong Name hoặc VP
+
+- Anh Bửu 2026-11-28: "mỗi lần vào danh sách duyệt hãy bỏ tick và chỉ tick lại các name chưa có trong vp/name riêng chung". Lúc vừa lọc xong app vốn đã làm vậy; nhưng mở lại một gói tạm từ Lịch sử lọc (hoặc bấm ‹ rồi vào lại) thì ô tích giữ y như lúc đóng — name anh đã lưu vào Name sau lần lọc đó vẫn còn tích, nên bấm Lưu / Xuất file là lấy cả name đã có.
+- Nay `LocalNameFilterSession.openDraft` đặt lại ô tích trước khi hiện màn duyệt (`resettingSelection`, `LocalNameFilterSession+Drafts`): tích mọi name rồi cho `AIBookDataInspector.decorateExtractedNames` bỏ tích và gắn lại badge NE / VP cho name đã có trong Name hoặc VP (riêng truyện, Chung, gốc) — cùng một luật với lúc vừa lọc xong. Name chưa có trong từ điển được tích lại dù lần trước anh đã bỏ tích. Danh sách, nghĩa đã sửa và loại của gói vẫn giữ nguyên.
+- Tra từ điển chạy ngoài main nên `openDraft` thành `async`; `openDraftFromHistory` gọi trong `Task`. Tra xong mà phiên đã rời bước chọn thì thôi.
+- `.claude/rules/translation.md`: ghi luật mới ở đoạn gói tạm.
+- Chưa build (máy Windows); chưa thử trên máy.
+
 ## [1.3.1141] - 2026-11-28
 
 ### fix: lọc name local không còn nhận tên người kèm hư từ đứng sau như 穆宣和 là một tên
@@ -387,33 +397,3 @@ Mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M1, mục C8 (anh
   UIKit, không có `ModelContainer`) nên tên file luồng AI theo tên hiển thị.
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1112] - 2026-11-28
-
-### feat: lọc name local tách tiền tố hậu tố khỏi tên Latin, luật L16 theo hậu tố khi lõi là tên Latin, thêm tiền tố hậu tố riêng truyện
-
-Plan "Tiền tố hậu tố riêng truyện" (anh Bửu duyệt 2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2)
-phần A + B4–B5, chép đúng bản tham chiếu `Docs/Plans/local-name-filter-lac/name_meaning.py` (`latin_affixed`) và
-`lacpipe.py` (`latin_core`, L16).
-
-- A1 tên kiểu Latin: `LocalNameFilterProperNames.latinAffixed` (file mới `+Latin`) bỏ tiền tố ở đầu (danh sách Tiền tố,
-  mọi loại) và / hoặc hậu tố ở cuối (mọi mục danh sách Hậu tố, kể cả Nhân danh, 1–6 chữ), dài nhất trước, ít nhất một
-  phía; lõi ≥ 2 chữ, không dấu ngăn, ra tên Latin qua `latinName(of:)` và khác âm Hán-Việt ⇒ "tiền tố + Latin + hậu tố"
-  theo vị trí. `LocalNameFilterMeaningBuilder` gọi ngay sau `nameLike` ở cả hàng bộ luật lẫn hàng phía LAC, mọi loại trừ
-  họ tộc; tên người vẫn báo danh xưng. 古赫密斯语 ⇒ "cổ Hermes ngữ", 古弗萨克语 ⇒ "cổ Fusak ngữ", bật Latin: 鲁恩语 ⇒
-  "Ruen ngữ", 莫里安语 ⇒ "Morian ngữ". `LocalNameFilterProperNames.init` thêm `affixes:` bắt buộc.
-- A2 L16 (`LocalNameFilterLACPipeline+Kind`): LAC bảo người + đuôi yếu + hậu tố địa danh / tổ chức, sau L2 / L1: phần
-  trước hậu tố (hoặc nó bỏ một tiền tố của danh sách) có ≥ 1 nghĩa từ điển (tách `/` `|` `;`) là chữ Latin khác âm
-  Hán-Việt, khoá có chữ phiên âm ⇒ theo hậu tố (`hasLatinCore`), không theo công tắc Latin. 霍伊河 Nhân danh ⇒ Địa danh
-  ("Hoắc Y hà", bật Latin "Khoy hà"), 苏尼亚海 ⇒ Địa danh "Sonia hải". `LocalNameFilterLACPipeline` thêm `properNames`.
-- A3 `LocalNameFilterMeaningComposer.rulesVersion = 3` ⇒ mọi gói tạm ghép lại một lần (nghĩa đã sửa tay giữ).
-- B4 kho riêng truyện `LocalNameFilterBookAffixStore` (`.suffixes` / `.prefixes`, `UserDefaults`
-  `localNameFilterBookSuffixes` / `localNameFilterBookPrefixes` = JSON theo `bookId`, Backup tự gói): thêm / sửa / xoá
-  cùng luật khoá + nghĩa với danh sách Chung, trùng khoá trong truyện ⇒ lỗi. Đổi nguồn gộp theo khoá (mục truyện cũ
-  thắng), xoá truyện / bản cũ sau mốc chốt xoá theo (`BookSourceMigrator`, `BookStorageManager.deleteBookSideData`).
-- B5 danh sách hiệu lực = Riêng + Chung, Riêng thắng cùng chữ: `LocalNameFilterAffixListStore.effective(bookId:)`,
-  `LocalNameFilterSuffixStore.allSuffixes(bookId:)`, `LocalNameFilterPrefixStore.allPrefixes(bookId:)`; thao tác theo
-  phạm vi R | C + chuyển R ↔ C (`+Scope`: `Scope`, `ScopedKey`, `keyError(_:scope:bookId:original:)`,
-  `save(...scope:bookId:original:)`, `delete(key:scope:bookId:)`). Sheet Lọc name local, gói tạm tự cập nhật, dấu gói
-  tạm, ghép lại ở màn duyệt đổi sang bản theo truyện; `signature` / composer / `DraftRefresher.Inputs` bỏ mặc định
-  `prefixes`. Bộ dò `detectionSuffixes` không đổi; giao diện chưa đổi.

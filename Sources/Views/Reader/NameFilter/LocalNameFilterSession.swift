@@ -172,12 +172,16 @@ final class LocalNameFilterSession {
     }
 
     /// Mở lại một gói tạm (chạm lần lọc chưa lưu ở trang Lịch sử lọc — `LocalNameFilterSheet+History`): thẳng tới màn
-    /// duyệt đúng trạng thái đã giữ; đóng chưa Lưu ⇒ ghi đè đúng gói này.
-    func openDraft(_ draft: LocalNameFilterDraft, bookId: String) {
+    /// duyệt với danh sách + nghĩa đã giữ; **ô tích đặt lại** (`resettingSelection` — chỉ tích name chưa có trong Name /
+    /// VP); đóng chưa Lưu ⇒ ghi đè đúng gói này.
+    func openDraft(_ draft: LocalNameFilterDraft, bookId: String) async {
+        guard phase == .setup else { return }
+        let names = await Self.resettingSelection(draft.names, bookId: bookId)
+        // Trong lúc tra từ điển người dùng đã rời bước chọn (bấm Bắt đầu lọc, đóng sheet…) ⇒ thôi.
         guard phase == .setup else { return }
         notice = nil
-        reviewNames = draft.names
-        latestReviewNames = draft.names
+        reviewNames = names
+        latestReviewNames = names
         reviewContext = ReviewContext(
             bookId: bookId,
             draftId: draft.id,

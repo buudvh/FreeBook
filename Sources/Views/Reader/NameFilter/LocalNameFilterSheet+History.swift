@@ -72,7 +72,10 @@ extension LocalNameFilterSheet {
         guard session.phase == .setup else { return }
         reopensHistoryAfterReview = true
         showsHistory = false
-        session.openDraft(draft, bookId: bookId)
+        // Mở gói có tra từ điển (đặt lại ô tích) nên chạy bất đồng bộ; màn duyệt hiện khi tra xong.
+        let targetBookId = bookId
+        let filterSession = session
+        Task { await filterSession.openDraft(draft, bookId: targetBookId) }
     }
 
     /// Phiên về bước chọn sau màn duyệt mở từ lịch sử ⇒ đẩy lại trang lịch sử (stack vừa dựng lại từ gốc).

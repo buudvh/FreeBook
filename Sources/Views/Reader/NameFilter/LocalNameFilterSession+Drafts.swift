@@ -57,6 +57,22 @@ extension LocalNameFilterSession {
     }
 
     /// Màn duyệt báo danh sách đang duyệt mỗi lần đổi (chọn / bỏ chọn, sửa, bỏ mục, cờ NE / VP tra lại).
+    /// Ô tích lúc **vào** màn duyệt từ một gói tạm (anh Bửu 2026-11-28: "mỗi lần vào danh sách duyệt hãy bỏ tick và chỉ tick
+    /// lại các name chưa có trong vp/name riêng chung"): tích mọi name rồi để `decorateExtractedNames` bỏ tích + gắn lại
+    /// badge NE / VP cho name đã có trong Name hoặc VP (riêng truyện, Chung, gốc) — cùng luật với lúc vừa lọc xong, nên
+    /// name anh đã lưu sau lần lọc đó tự bỏ tích, name chưa có tự được tích lại dù lần trước anh đã bỏ tích. Chạy ngoài
+    /// main (đọc file từ điển riêng của truyện).
+    static func resettingSelection(_ names: [AIExtractedName], bookId: String) async -> [AIExtractedName] {
+        let ticked = names.map { item -> AIExtractedName in
+            var copy = item
+            copy.isSelected = true
+            return copy
+        }
+        return await Task.detached(priority: .userInitiated) {
+            AIBookDataInspector.shared.decorateExtractedNames(names: ticked, bookId: bookId)
+        }.value
+    }
+
     func updateReviewNames(_ names: [AIExtractedName]) {
         guard phase == .review else { return }
         latestReviewNames = names
