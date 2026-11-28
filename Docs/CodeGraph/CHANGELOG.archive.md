@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1095] - 2026-11-27
+
+### refactor: hợp đồng lọc name local có cờ nghĩa do máy đoán, công tắc ưu tiên tên Latin và công cụ học mô hình đoán tên
+
+Bước đầu của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md`, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz): chốt kiểu chung trước để hai phần (nghĩa + đuôi + công tắc Latin; ô tìm + nhãn "đoán" ở màn duyệt) làm song song.
+
+- `AIExtractedName.isGuessedMeaning` (mặc định `false`, chỉ ghi JSON khi bật — tin nhắn AI cũ, gói tạm đọc được như cũ).
+- `LocalNameFilter.Name.isGuessedMeaning`, `Configuration.prefersLatinNames` ("Ưu tiên tên Latin", theo truyện); ghi rõ `Configuration.suffixes` từ nay **chỉ** để ghép nghĩa (cách A).
+- `Tools/lac-export/export_translit.py`: học mô hình phiên âm ngược Hán → Latin từ VietPhrase (54.722 cặp tên, EM theo đoạn 1–4 chữ cái + mô hình chữ cái bậc 3), xuất `translit_latin.json` (155 KB) kèm đặc tả bộ giải mã. Bài thi 10 %: đúng y hệt 13 %, sai ≤ 1 chữ cái 36 %. Bộ giải mã độc lập đọc JSON trùng 3000 / 3000 dự đoán. Đã đẩy lên `datasets/raikiri1498/vietpharse` `lac/translit_latin.json`, commit `0df8c84a`.
+- Commit này một mình chưa dùng các trường mới; hai phần sau của đợt bổ sung.
+
 ## [1.3.1094] - 2026-11-27
 
 ### feat: token <m> ghép chữ theo luật, xét vị trí trong bản dịch để nhận chữ số và đọc 十 là mười, 千 đọc ngàn

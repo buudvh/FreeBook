@@ -7,7 +7,13 @@ import SwiftUI
 /// Áp **chỉ cho name đang sửa** (anh Bửu chọn): bật ⇒ màn duyệt ghép lại nghĩa name này theo cách nới (lõi chỉ cần ½ số chữ
 /// là chữ phiên âm; nhãn "đoán" nếu máy đoán), tắt ⇒ về như cách thường. Giá trị mở đầu = ghi đè của name, chưa có ⇒ công
 /// tắc của truyện. Trạng thái giữ ở `@State` (ngữ cảnh màn duyệt không phát thay đổi); mỗi lần gạt ⇒ `onChange`.
+///
+/// Nhãn vàng **"đoán"** trước công tắc khi nghĩa hiện tại của name đang sửa do máy đoán (`isGuessed` =
+/// `AIExtractedName.isGuessedMeaning`, mockup N6 vẽ nhãn trong ô nghĩa — đặt ở đây để không đụng `DictEntryEditSheet.swift`
+/// đã sát 400 dòng; session chính chốt 2026-11-28). Nơi dựng truyền lại mỗi lần name đổi nên nhãn theo kết quả ghép lại.
 struct LocalNameFilterReviewLooseRow: View {
+    /// Nghĩa hiện tại của name đang sửa do máy đoán.
+    let isGuessed: Bool
     let onChange: (Bool) -> Void
 
     @State private var isOn: Bool
@@ -18,7 +24,8 @@ struct LocalNameFilterReviewLooseRow: View {
         "Công tắc chung cho cả lượt lọc nằm ở sheet Lọc name local, dưới **Ưu tiên tên Latin**."
     ]
 
-    init(isOn: Bool, onChange: @escaping (Bool) -> Void) {
+    init(isOn: Bool, isGuessed: Bool, onChange: @escaping (Bool) -> Void) {
+        self.isGuessed = isGuessed
         self.onChange = onChange
         _isOn = State(initialValue: isOn)
     }
@@ -33,6 +40,7 @@ struct LocalNameFilterReviewLooseRow: View {
                 paragraphs: Self.helpParagraphs.map { LocalizedStringKey($0) }
             )
             Spacer(minLength: 8)
+            if isGuessed { guessBadge }
             Toggle("Nới đoán tên Latin", isOn: Binding(
                 get: { isOn },
                 set: { value in
@@ -44,5 +52,21 @@ struct LocalNameFilterReviewLooseRow: View {
             .labelsHidden()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Cùng kiểu nhãn "đoán" của hàng màn duyệt (`ReaderAINameReviewBadges`: chữ vàng, viền vàng mờ), cỡ chữ theo hàng này.
+    private var guessBadge: some View {
+        Text("đoán")
+            .font(.system(size: 11, weight: .bold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .foregroundColor(.yellow)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.yellow.opacity(0.7), lineWidth: 0.8)
+            )
+            .fixedSize()
+            .padding(.trailing, 6)
+            .accessibilityLabel("nghĩa hiện tại do máy đoán")
     }
 }

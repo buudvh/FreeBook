@@ -64,6 +64,7 @@ extension ReaderAINameReviewSheet {
             // Hàng "Nới" chỉ khi truyện bật "Ưu tiên tên Latin" (mockup N6) và name có nghĩa máy ghép.
             loosensLatin: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: context.bookId)
                 ? context.loosensLatin(of: item.original) : nil,
+            isGuessedMeaning: item.isGuessedMeaning,
             onLooseChange: { value in changeLoose(of: itemId, to: value) },
             onAffixChanged: { flavor, key, replaced, verb in
                 affixDidSave(flavor, key: key, replaced: replaced, verb: verb)

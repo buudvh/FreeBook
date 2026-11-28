@@ -27,6 +27,8 @@ struct LocalNameFilterReviewAffixRows: View {
     /// Công tắc "Nới đoán tên Latin" của riêng name này (giá trị mở đầu); `nil` = không có hàng (truyện tắt "Ưu tiên tên
     /// Latin", gói cũ chưa có nghĩa máy ghép). Cố định khi sheet mở ⇒ nấc vừa khít đo đúng ngay lần đầu.
     let loosensLatin: Bool?
+    /// Nghĩa hiện tại của name do máy đoán ⇒ nhãn "đoán" ở hàng Nới (đổi theo mỗi lần ghép lại).
+    let isGuessedMeaning: Bool
     let onLooseChange: (Bool) -> Void
     /// Một mục vừa thêm / sửa / xoá: danh sách, khoá, khoá cũ khi đổi chữ, động từ của toast.
     let onAffixChanged: (_ flavor: Flavor, _ key: String, _ replaced: String?, _ verb: String) -> Void
@@ -38,7 +40,7 @@ struct LocalNameFilterReviewAffixRows: View {
         VStack(alignment: .leading, spacing: 14) {
             LocalNameFilterReviewCategoryRow(selection: category, original: originalCategory, onSelect: onCategoryChange)
             if let loosensLatin {
-                LocalNameFilterReviewLooseRow(isOn: loosensLatin, onChange: onLooseChange)
+                LocalNameFilterReviewLooseRow(isOn: loosensLatin, isGuessed: isGuessedMeaning, onChange: onLooseChange)
             }
             LocalNameFilterSuffixQuickRow(
                 flavor: .prefix, name: name, bookId: bookId, kind: kind, revision: revision,

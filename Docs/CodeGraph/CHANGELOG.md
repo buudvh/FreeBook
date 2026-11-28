@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1125] - 2026-11-28
+
+### fix: hàng Nới đoán tên Latin ở màn Sửa từ có nhãn vàng đoán khi nghĩa hiện tại của name do máy đoán
+
+Nối tiếp "lọc name local tin Name và VP riêng cho lõi tên Latin, thêm công tắc Nới đoán tên Latin theo truyện và theo name" (mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N6; session chính chốt 2026-11-28).
+
+- Mockup N6 vẽ nhãn "đoán" trong ô nghĩa của màn Sửa từ; vì `DictEntryEditSheet.swift` sát 400 dòng, nhãn vàng "đoán" (cùng kiểu nhãn của hàng màn duyệt `ReaderAINameReviewBadges`: chữ vàng, viền vàng mờ) đặt ở cuối hàng "Nới đoán tên Latin", ngay trước công tắc (`LocalNameFilterReviewLooseRow.isGuessed`), không đụng file gốc của màn Sửa từ.
+- Theo cờ `isGuessedMeaning` của name đang sửa (`LocalNameFilterReviewAffixRows.isGuessedMeaning`, `ReaderAINameReviewSheet+Edit` truyền mỗi lần dựng) ⇒ bật / tắt Nới ghép lại ra nghĩa đoán / không đoán thì nhãn hiện / ẩn theo. Nhãn thấp hơn công tắc nên hàng không cao thêm, nấc vừa khít không đổi.
+
 ## [1.3.1124] - 2026-11-28
 
 ### fix: sửa tiền tố hậu tố có sẵn mà nhấn giữ R hoặc C thì chỉ ghim mặc định, không đổi phạm vi của mục đang sửa
@@ -475,14 +484,3 @@ Phần màn duyệt của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2
 - **Nhãn "đoán"**: `AIExtractedName.isGuessedMeaning` ⇒ nhãn nhỏ viền vàng cạnh badge loại / NE / VP (`ReaderAINameReviewBadges`). Bấm "Cập nhật" ở màn Sửa từ ⇒ mục mang khoá đích bỏ cờ (`ReaderAINameReviewSheet+Edit.applyEdit`, ghi `names` một lần); chọn một phần thành mục mới thì mục gốc giữ cờ. Cờ đi theo gói tạm qua `AIExtractedName` (Codable).
 - Thẻ tách thành `ReaderAINameReviewCardView+Sorting.swift` (kiểu sắp, menu ⇅) và `+Filtering.swift` (ô tìm, phần đang hiện, "Chọn hết") để giữ dưới 400 dòng.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1095] - 2026-11-27
-
-### refactor: hợp đồng lọc name local có cờ nghĩa do máy đoán, công tắc ưu tiên tên Latin và công cụ học mô hình đoán tên
-
-Bước đầu của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md`, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz): chốt kiểu chung trước để hai phần (nghĩa + đuôi + công tắc Latin; ô tìm + nhãn "đoán" ở màn duyệt) làm song song.
-
-- `AIExtractedName.isGuessedMeaning` (mặc định `false`, chỉ ghi JSON khi bật — tin nhắn AI cũ, gói tạm đọc được như cũ).
-- `LocalNameFilter.Name.isGuessedMeaning`, `Configuration.prefersLatinNames` ("Ưu tiên tên Latin", theo truyện); ghi rõ `Configuration.suffixes` từ nay **chỉ** để ghép nghĩa (cách A).
-- `Tools/lac-export/export_translit.py`: học mô hình phiên âm ngược Hán → Latin từ VietPhrase (54.722 cặp tên, EM theo đoạn 1–4 chữ cái + mô hình chữ cái bậc 3), xuất `translit_latin.json` (155 KB) kèm đặc tả bộ giải mã. Bài thi 10 %: đúng y hệt 13 %, sai ≤ 1 chữ cái 36 %. Bộ giải mã độc lập đọc JSON trùng 3000 / 3000 dự đoán. Đã đẩy lên `datasets/raikiri1498/vietpharse` `lac/translit_latin.json`, commit `0df8c84a`.
-- Commit này một mình chưa dùng các trường mới; hai phần sau của đợt bổ sung.
