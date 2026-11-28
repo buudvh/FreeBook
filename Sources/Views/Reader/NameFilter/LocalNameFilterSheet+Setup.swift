@@ -145,6 +145,8 @@ extension LocalNameFilterSheet {
                         }
                     )
                 )
+
+                looseLatinRow
             } header: {
                 SectionHelpHeader("Tuỳ chọn", paragraphs: [
                     "**Ít nhất N lần**: chỉ giữ name xuất hiện từ chừng ấy lần trở lên trong các chương đã chọn. Lọc ít chương thì nên hạ xuống 2.",
@@ -178,6 +180,38 @@ extension LocalNameFilterSheet {
         .onAppear { refreshListCounts() }
         .task { await loadChapters() }
         .task { await loadDrafts() }
+    }
+
+    /// Hàng **"Nới đoán tên Latin"** (2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N5) ngay dưới
+    /// "Ưu tiên tên Latin": tên + `?` + dòng phụ, công tắc chỉ bật được khi "Ưu tiên tên Latin" bật (tắt ⇒ mờ, hiện tắt; giá
+    /// trị đã lưu giữ nguyên để bật lại Latin là có lại). Nhớ theo truyện (`LocalNameFilterLatinPreferenceStore.loose`).
+    private var looseLatinRow: some View {
+        HStack(spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 2) {
+                    Text("Nới đoán tên Latin")
+                    SectionHelpButton(accessibilityLabel: "Giải thích Nới đoán tên Latin", paragraphs: [
+                        "Tên kiểu Latin có tiền tố / hậu tố (古赫密斯语, 霍伊河): phần lõi còn lại không có trong từ điển thì máy chỉ đoán khi **mọi** chữ của lõi là chữ phiên âm. Bật ⇒ chỉ cần **một nửa** số chữ.",
+                        "Đo thử: bật làm 3 name đổi nghĩa, cả 3 xấu đi (小罗子 ⇒ tiểu Roko, 姜博海 ⇒ Djanbo hải) — nên để tắt, chỉ bật khi truyện có nhiều tên Latin lạ. Muốn nới cho riêng một name thì bật ở màn Sửa từ của name đó.",
+                        "Chỉ bật được khi **Ưu tiên tên Latin** đang bật. Nhớ riêng cho từng truyện."
+                    ])
+                }
+                Text("Lõi chỉ cần ½ số chữ là chữ phiên âm")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer(minLength: 8)
+            Toggle("Nới đoán tên Latin", isOn: Binding(
+                get: { prefersLatinNames && loosensLatinGuess },
+                set: { value in
+                    loosensLatinGuess = value
+                    LocalNameFilterLatinPreferenceStore.loose.setOn(value, bookId: bookId)
+                }
+            ))
+            .labelsHidden()
+            .disabled(!prefersLatinNames)
+        }
+        .opacity(prefersLatinNames ? 1 : 0.45)
     }
 
     /// Hàng "Độ dài name" (L15, mockup khung 5): tiêu đề + khoảng đang chọn bên phải ("2 – 10+ chữ"), thanh kéo hai đầu.
@@ -314,6 +348,7 @@ extension LocalNameFilterSheet {
         surnameCount = QuickTranslationSurnameStore.nameFilter.summary().total
         blockedCount = LocalNameFilterBlocklistStore.shared.count
         prefersLatinNames = LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
+        loosensLatinGuess = LocalNameFilterLatinPreferenceStore.loose.isOn(bookId: bookId)
     }
 
     /// Nạp danh sách chương đã tải **một lần**; `.task` của gốc chạy lại khi quay về từ trang con ⇒ đã nạp thì thôi.

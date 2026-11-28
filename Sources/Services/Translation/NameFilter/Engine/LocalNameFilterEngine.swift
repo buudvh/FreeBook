@@ -61,7 +61,8 @@ final class LocalNameFilterEngine {
             dictionaries: dictionaries,
             latinModel: configuration.prefersLatinNames ? latinModel : nil,
             prefixes: configuration.prefixes,
-            affixes: configuration.suffixes
+            affixes: configuration.suffixes,
+            loosensLatinCore: configuration.loosensLatinGuess
         )
     }
 

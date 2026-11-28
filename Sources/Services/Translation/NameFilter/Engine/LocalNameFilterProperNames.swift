@@ -26,8 +26,9 @@ import Foundation
 ///   phần sau ra tên **Latin** (cả phần / phủ trọn bằng `coverEntry`, hoặc mô hình đoán khi bật Latin và **mọi** chữ là chữ
 ///   phiên âm) ⇒ "nghĩa tiền tố + tên" theo vị trí (老科勒 ⇒ "lão Kolle"); không ra Latin ⇒ đi tiếp như cũ (小鱼 ⇒ "Tiểu
 ///   Ngư", 老张 ⇒ "Lão Trương").
-/// - **Tên kiểu Latin có tiền tố / hậu tố** (`latinAffixed`, 2026-11-28) và lõi Latin của luật phân loại L16
-///   (`hasLatinCore`) — file `LocalNameFilterProperNames+Latin.swift`.
+/// - **Tên kiểu Latin có tiền tố / hậu tố** (`latinAffixed`, 2026-11-28; lõi `latinCore(of:)` tin Name / VP riêng + công
+///   tắc "Nới đoán tên Latin") và lõi Latin của luật phân loại L16 (`hasLatinCore`) — file
+///   `LocalNameFilterProperNames+Latin.swift`.
 ///
 /// Một đối tượng cho cả lượt lọc (`LocalNameFilterEngine` giữ) — nhớ kết quả qua mọi lần chụp. **Không khoá**: chỉ dùng
 /// trên task của lượt lọc, như `LocalNameFilterDictionaries`.
@@ -59,10 +60,11 @@ final class LocalNameFilterProperNames {
     }()
 
     let dictionaries: LocalNameFilterDictionaries
-    /// `nil` = tắt "Ưu tiên tên Latin" hoặc bật mà không có mô hình (tải lỗi) — khi đó như tắt.
-    private let latinModel: LocalNameFilterLatinModel?
+    /// `nil` = tắt "Ưu tiên tên Latin" hoặc bật mà không có mô hình (tải lỗi) — khi đó như tắt. Không `private`: file `+Latin`
+    /// (`latinCore(of:)`) dùng.
+    let latinModel: LocalNameFilterLatinModel?
     /// Tập chữ phiên âm (code point) — luôn có, không theo công tắc.
-    private let translitChars: Set<UInt32>
+    let translitChars: Set<UInt32>
     /// Danh sách "Tiền tố" theo khoá (`Configuration.prefixes`), mọi loại — `prefixed` tự lọc theo nhóm, `latinAffixed` /
     /// `hasLatinCore` (file `+Latin`) dùng hết.
     let prefixes: [Word: LocalNameFilter.Suffix]
@@ -71,6 +73,10 @@ final class LocalNameFilterProperNames {
     /// chỉ để tách hậu tố khỏi tên kiểu Latin (`latinAffixed`, `affixes` của `name_meaning.py`).
     let affixes: [Word: LocalNameFilter.Suffix]
     let affixMaxLength: Int
+    /// Công tắc **"Nới đoán tên Latin"** (hướng b, 2026-11-28, `loose` của `name_meaning.py`): bước mô hình đoán **lõi** của
+    /// tên kiểu Latin (`latinCore(of:)`) nhận lõi có ≥ một nửa số chữ là chữ phiên âm (`looksTransliterated`) thay vì mọi
+    /// chữ. Chỉ có tác dụng khi có mô hình (bật "Ưu tiên tên Latin").
+    let loosensLatinCore: Bool
     /// Chuỗi rỗng = không có nghĩa kiểu tên.
     private var nameLikeMemo: [Word: String] = [:]
     /// Như `nameLikeMemo` cho `coverEntry`.
@@ -79,16 +85,18 @@ final class LocalNameFilterProperNames {
 
     /// `translitChars` mặc định là tập đóng trong app; truyền vào chỉ để thử. `prefixes` rỗng ⇒ không ghép tiền tố.
     /// `affixes` = danh sách "Hậu tố" hiệu lực của lượt (`Configuration.suffixes` — Chung + Riêng truyện), không có mặc
-    /// định để chỗ gọi nào cũng phải chọn.
+    /// định để chỗ gọi nào cũng phải chọn; `loosensLatinCore` cũng vậy (`Configuration.loosensLatinGuess`).
     init(
         dictionaries: LocalNameFilterDictionaries,
         latinModel: LocalNameFilterLatinModel?,
         prefixes: [LocalNameFilter.Suffix] = [],
         affixes: [LocalNameFilter.Suffix],
+        loosensLatinCore: Bool,
         translitChars: Set<UInt32> = LocalNameFilterTranslitChars.set
     ) {
         self.dictionaries = dictionaries
         self.latinModel = latinModel
+        self.loosensLatinCore = loosensLatinCore
         self.translitChars = translitChars
         let prefixTable = LocalNameFilterProperNames.table(prefixes)
         self.prefixes = prefixTable
@@ -246,7 +254,7 @@ final class LocalNameFilterProperNames {
     /// `latin_of`: tên Latin của phần sau tiền tố — cả phần / phủ trọn bằng `coverEntry` mà nghĩa là chữ Latin; không có
     /// trong từ điển ⇒ mô hình đoán khi bật Latin và **mọi** chữ là chữ phiên âm. Không ra Latin ⇒ `nil`.
     func latinName(of rest: Word) -> Proper? {
-        if let found = coverEntry(rest) ?? cover(rest) {
+        if let found = coverEntryOrCover(rest) {
             return Self.isLatinName(found) ? Proper(text: found, isGuessed: false) : nil
         }
         if let latinModel, !translitChars.isEmpty, rest.scalars.allSatisfy({ translitChars.contains($0) }),
@@ -296,6 +304,11 @@ final class LocalNameFilterProperNames {
     /// họ) — như `name_meaning.py`.
     private func isRealLatin(_ text: String, key: Word) -> Bool {
         Self.isLatinName(text) && text.lowercased() != reading(key, surnameLength: 0).lowercased()
+    }
+
+    /// `cover_entry(w) or cover(w)`: cả cụm là một mục `coverEntry`, không thì phủ trọn bằng các mục ≥ 2 chữ.
+    func coverEntryOrCover(_ word: Word) -> String? {
+        coverEntry(word) ?? cover(word)
     }
 
     /// Phủ trọn mảnh bằng các mục ≥ 2 chữ `coverEntry`, khớp dài nhất từ trái; còn chữ lẻ ⇒ `nil`.

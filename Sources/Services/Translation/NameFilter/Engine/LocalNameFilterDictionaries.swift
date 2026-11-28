@@ -13,7 +13,8 @@ import Foundation
 ///   Pronouns (plan 2026-11-27-phan-loai-name L11, anh Bửu duyệt): danh xưng của bộ lọc lấy từ hậu tố Nhân danh của danh
 ///   sách hậu tố (`LocalNameFilterSetup`) — Pronouns là từ điển của bộ dịch, cắt cho vừa bộ lọc là hỏng bản dịch.
 /// - Nghĩa thô cho nghĩa đề xuất (`dictionaryValue`, 2026-11-27): Name (riêng > Chung > gốc trừ đã xoá) rồi VP hiệu lực —
-///   lớp đầu tiên có khoá thắng, như thứ tự dịch (Name đè VP).
+///   lớp đầu tiên có khoá thắng, như thứ tự dịch (Name đè VP). Bản chỉ các lớp người dùng đã chốt (Name + VP riêng,
+///   `trustedValue`, 2026-11-28) cho lõi tên Latin.
 ///
 /// Bộ nhớ đệm tra cứu **không khoá**: chỉ dùng trên task của lượt lọc. Mọi hàm tra là hàm thuần của bản chụp, nên nhớ qua
 /// nhiều lần chụp kết quả vẫn đúng.
@@ -161,6 +162,16 @@ final class LocalNameFilterDictionaries {
         if let value = Self.exactValue(customNames, word) { return value }
         if !deletedNames.contains(word), let value = Self.exactValue(baseNames, word) { return value }
         return vietPhraseMeaning(word)
+    }
+
+    /// Nghĩa thô của `word` (khớp trọn) ở các lớp **người dùng đã chốt** cho lõi tên Latin (hướng a, 2026-11-28 — `trusted`
+    /// của `name_meaning.py`): Name riêng > Name Chung > Name gốc (trừ đã xoá), rồi **VP riêng của truyện**. Không gồm VP
+    /// Chung / gốc (chúng vẫn qua chốt chữ phiên âm của `coverEntry` — chặn 黑礁 "Black Lagoon"). `nil` = không có.
+    func trustedValue(_ word: String) -> String? {
+        if let value = Self.exactValue(bookNames, word) { return value }
+        if let value = Self.exactValue(customNames, word) { return value }
+        if !deletedNames.contains(word), let value = Self.exactValue(baseNames, word) { return value }
+        return Self.exactValue(bookVietPhrase, word)
     }
 
     /// Nghĩa VP hiệu lực của `word` (khớp trọn): riêng truyện > Chung đã sửa > gốc (trừ từ đã xoá).

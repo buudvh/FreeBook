@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1091] - 2026-11-27
+
+### fix: lọc name local giữ model khi chỉ lỗi đọc file, bộ luật bỏ dòng tên chương như bản Python, sửa loại đuôi 花 không tự bật
+
+Anh Bửu: "sửa luôn mấy lỗi nhẹ còn lại đi" — bốn lỗi nhẹ ghi nhận ở 1.3.1090.
+
+- **Lỗi đọc file model thoáng qua không còn xoá cả model**: thêm `LACModelError.readFailed` ("Không đọc được model nhận diện tên…", có "Thử lại"). Kiểm sha256 (`LACModelStore.verifyChecksums`), đọc file khi nạp (`LACTagger.load`) và đọc mẫu đối chiếu mà lỗi I/O ⇒ `readFailed`, **giữ** thư mục; chỉ sha lệch / sai định dạng (`invalidFiles`) mới xoá để tải lại 19 MB. Bộ lọc xử lý `readFailed` như hai lỗi kia (sự kiện `.failed`).
+- **Bộ luật bỏ dòng tên chương** (`第N章…`) trước khi đếm, như `split_chapters` của bản Python (`LocalNameFilterLACChapterTagger.removingChapterHeadings`, dùng chung hàm nhận dạng của phía LAC) — số lần / mảnh / `dict_common_head` khớp bản tham chiếu cả khi nội dung chương có dòng tên chương. Chương không có dòng nào như vậy ⇒ chữ giữ nguyên.
+- **Sửa loại của đuôi gốc 花 không làm công tắc tự bật**: lớp riêng danh sách đuôi có trường `format` (2). Dữ liệu cũ (`format` vắng) đọc vào thì ghi rõ `enabled = true` cho 花 người dùng đã tự thêm từ trước (giữ bật như cũ); mặc định bật / tắt từ nay chỉ theo cờ `|off` của bản gốc.
+- **`Name.chapterCount`**: không màn hay luật nào dùng ⇒ không tốn công đếm lại trên chữ từng chương; ghi rõ nghĩa (hàng LAC = số chương LAC gắn nhãn thực thể; hàng bộ luật = số chương sinh ứng viên).
+- `translation.md`: ghi `readFailed` và việc bỏ dòng tên chương. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1090] - 2026-11-27
 
 ### fix: lọc name local xoá gói tạm khi xoá truyện, Dừng được lúc đang tải model, toast gói tạm chỉ hiện khi đóng sheet thật

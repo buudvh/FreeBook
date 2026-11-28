@@ -14,6 +14,16 @@ struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
     struct AutoMeaning: Codable, Sendable, Equatable {
         var meaning: String
         let kind: LocalNameFilter.Kind
+        /// Ghi đè công tắc **"Nới đoán tên Latin"** cho riêng name này (màn Sửa từ của màn duyệt, 2026-11-28 — mockup N6);
+        /// `nil` = theo công tắc của truyện. Trường tuỳ chọn ⇒ gói tạm cũ (chưa có trường) đọc được. Mọi lần ghép lại phải
+        /// giữ giá trị này (init không có mặc định để chỗ dựng nào cũng phải chọn).
+        var loosensLatin: Bool?
+
+        init(meaning: String, kind: LocalNameFilter.Kind, loosensLatin: Bool?) {
+            self.meaning = meaning
+            self.kind = kind
+            self.loosensLatin = loosensLatin
+        }
     }
 
     /// Cố định suốt đời gói: mở lại rồi đóng chưa Lưu ⇒ ghi đè đúng gói này, không tạo gói mới.
@@ -30,7 +40,7 @@ struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
     /// Chữ Hán ⇒ nghĩa máy ghép (lúc lọc, hoặc lần tự cập nhật trước). Nghĩa đang có khác nghĩa máy ghép ⇒ người dùng đã tự
     /// sửa ⇒ giữ nguyên. `nil` = gói của bản trước (chưa có trường này) ⇒ không ghép lại nghĩa, chỉ bỏ name "Không phải name".
     var autoMeanings: [String: AutoMeaning]?
-    /// Dấu danh sách đuôi + công tắc Latin của lần ghép nghĩa gần nhất (`LocalNameFilterMeaningComposer.signature`): trùng
+    /// Dấu danh sách đuôi + công tắc Latin / nới của lần ghép nghĩa gần nhất (`LocalNameFilterMeaningComposer.signature`): trùng
     /// dấu hiện tại ⇒ bộ cập nhật gói không ghép lại. `nil` ⇒ chưa biết ⇒ ghép lại một lần rồi ghi dấu.
     var meaningSignature: String? = nil
 

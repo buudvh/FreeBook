@@ -20,7 +20,8 @@ import SwiftUI
 /// 2026-11-27-phan-loai-name mục 7 / 10 / L10 / L11); thêm / sửa / xoá một mục xong ⇒ ghép lại nghĩa ngay các name kết thúc
 /// bằng hậu tố / mở đầu bằng tiền tố đó mà nghĩa vẫn do máy ghép (`LocalNameFilterReviewSuffixContext.recompose`), ô nghĩa
 /// của màn Sửa từ theo nếu người dùng chưa gõ khác (`followsOriginalValue`), toast "Đã thêm hậu tố 街 · ghép lại N name".
-/// Đổi Phân loại ⇒ badge + số chip lọc đổi ngay, nghĩa ghép lại theo nhóm mới nếu chưa sửa tay (`changeCategory`).
+/// Đổi Phân loại ⇒ badge + số chip lọc đổi ngay, nghĩa ghép lại theo nhóm mới nếu chưa sửa tay (`changeCategory`). Hàng
+/// **"Nới đoán tên Latin"** (mockup N6, chỉ khi truyện bật "Ưu tiên tên Latin") ⇒ ghép lại riêng name này (`changeLoose`).
 extension ReaderAINameReviewSheet {
     static let editBadgeText = "AI · Riêng truyện"
     /// Badge màn Sửa từ khi mở từ luồng "Lọc name local" (danh sách có sẵn, không có tin AI nguồn).
@@ -60,6 +61,10 @@ extension ReaderAINameReviewSheet {
             category: LocalNameFilterCategoryBadge.category(forLabel: item.category),
             originalCategory: context.originalCategory(of: item.original),
             onCategoryChange: { category in changeCategory(of: itemId, to: category) },
+            // Hàng "Nới" chỉ khi truyện bật "Ưu tiên tên Latin" (mockup N6) và name có nghĩa máy ghép.
+            loosensLatin: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: context.bookId)
+                ? context.loosensLatin(of: item.original) : nil,
+            onLooseChange: { value in changeLoose(of: itemId, to: value) },
             onAffixChanged: { flavor, key, replaced, verb in
                 affixDidSave(flavor, key: key, replaced: replaced, verb: verb)
             }
@@ -88,6 +93,35 @@ extension ReaderAINameReviewSheet {
                 updated[current].isGuessedMeaning = change.isGuessed
                 names = updated
                 if editingName?.id == itemId { editingName = updated[current] }
+            }
+        }
+    }
+
+    /// Bật / tắt "Nới đoán tên Latin" **chỉ cho name này** (hàng "Nới" ở màn Sửa từ, mockup N6): ngữ cảnh ghi ghi đè vào gói
+    /// tạm ngay rồi ghép lại nghĩa name đó trong hàng đợi chung. Nghĩa máy đổi ⇒ áp lên hàng **kể cả nghĩa đã sửa tay** (người
+    /// dùng chủ động ghép lại name này; ô nghĩa của màn Sửa từ theo qua `followsOriginalValue` nếu chưa gõ khác) + cờ "đoán"
+    /// theo kết quả; không đổi ⇒ toast nhắc; ghép lỗi ⇒ toast lỗi (đã log).
+    func changeLoose(of itemId: UUID, to loose: Bool) {
+        guard let context = localSuffixContext, let item = names.first(where: { $0.id == itemId }) else { return }
+        let term = item.original
+        Task { @MainActor in
+            context.changeLoose(of: term, itemId: itemId, to: loose, currentNames: { names }) { outcome in
+                switch outcome {
+                case .changed(let change):
+                    guard let current = names.firstIndex(where: { $0.id == itemId }),
+                          names[current].suggestedMeaning == change.old else { return }
+                    var updated = names
+                    updated[current].suggestedMeaning = change.new
+                    updated[current].isGuessedMeaning = change.isGuessed
+                    names = updated
+                    if editingName?.id == itemId { editingName = updated[current] }
+                case .unchanged:
+                    ToastManager.shared.show(
+                        message: "\(loose ? "Nới" : "Bỏ nới") đoán tên Latin không đổi nghĩa \(term)", type: .info
+                    )
+                case .failed:
+                    ToastManager.shared.show(message: "Không ghép lại được nghĩa \(term)", type: .error)
+                }
             }
         }
     }

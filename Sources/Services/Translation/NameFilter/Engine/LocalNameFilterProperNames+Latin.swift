@@ -7,11 +7,11 @@ extension LocalNameFilterProperNames {
     private static let readingSeparators: Set<Character> = ["/", "|", ";"]
 
     /// `latin_affixed`: bỏ tiền tố ở đầu (danh sách "Tiền tố", **mọi** loại) và / hoặc hậu tố ở cuối (**mọi** mục của danh
-    /// sách "Hậu tố", kể cả Nhân danh), dài nhất trước, ít nhất một phía; phần lõi ≥ 2 chữ ra tên Latin (`latinName(of:)`
-    /// — cả lõi / phủ trọn bằng `coverEntry` mà nghĩa là chữ Latin, hoặc mô hình đoán khi bật Latin) **và** khác âm
-    /// Hán-Việt của lõi ⇒ "nghĩa tiền tố + Latin + nghĩa hậu tố" theo vị trí từng mục (trước / sau; tiền tố xếp trước hậu
-    /// tố khi cùng phía): 古赫密斯语 ⇒ "cổ Hermes ngữ", 霍伊河 ⇒ "Khoy hà" (bật Latin). Nghĩa mục lấy nguyên chữ người dùng
-    /// viết. Có dấu ngăn tên (`·` `.` `•`) hoặc không ra ⇒ `nil`.
+    /// sách "Hậu tố", kể cả Nhân danh), dài nhất trước, ít nhất một phía; phần lõi ≥ 2 chữ ra tên Latin (`latinCore(of:)`)
+    /// **và** khác âm Hán-Việt của lõi ⇒ "nghĩa tiền tố + Latin + nghĩa hậu tố" theo vị trí từng mục (trước / sau; tiền tố
+    /// xếp trước hậu tố khi cùng phía): 古赫密斯语 ⇒ "cổ Hermes ngữ", 霍伊河 ⇒ "Khoy hà" (bật Latin), 图铎家族 ⇒ "Tudor gia tộc"
+    /// (图铎 = Tudor trong Name). Nghĩa mục lấy nguyên chữ người dùng viết. Có dấu ngăn tên (`·` `.` `•`) hoặc không ra ⇒
+    /// `nil`.
     func latinAffixed(_ word: Word) -> Proper? {
         guard !word.scalars.contains(where: { Self.separators.contains($0) }) else { return nil }
         let prefixLengths = Self.matchingLengths(max: min(prefixMaxLength, word.count - 2)) {
@@ -24,7 +24,7 @@ extension LocalNameFilterProperNames {
             for affixLength in affixLengths {
                 guard prefixLength + affixLength > 0, word.count - prefixLength - affixLength >= 2 else { continue }
                 let core = word.slice(prefixLength, word.count - affixLength)
-                guard let latin = latinName(of: core),
+                guard let latin = latinCore(of: core),
                       latin.text.lowercased() != reading(core, surnameLength: 0).lowercased() else { continue }
                 var front: [String] = []
                 var back: [String] = []
@@ -39,6 +39,31 @@ extension LocalNameFilterProperNames {
             }
         }
         return nil
+    }
+
+    /// `latin_core_of` (2026-11-28, anh Bửu duyệt): tên Latin của **lõi** một tên kiểu Latin (chỉ `latinAffixed` gọi —
+    /// tiền tố của mảnh tên `prefixed` vẫn dùng `latinName(of:)` như `latin_of` của Python):
+    /// - (a) lõi khớp trọn một mục **Name** (riêng → Chung → gốc trừ đã xoá) hoặc **VP riêng của truyện**
+    ///   (`LocalNameFilterDictionaries.trustedValue`) mà nghĩa chọn bằng `pick` là chữ Latin ⇒ nhận luôn, **không** xét
+    ///   chữ phiên âm (图铎 = Tudor — tập 268 chữ thiếu 图 铎). Nghĩa đó không phải chữ Latin ⇒ đi tiếp như dưới;
+    /// - như `latinName(of:)`: cả lõi / phủ trọn bằng `coverEntry` (VP Chung / gốc vẫn qua chốt chữ phiên âm) mà nghĩa là
+    ///   chữ Latin; không có trong từ điển ⇒ mô hình đoán khi bật Latin và **mọi** chữ là chữ phiên âm — bật "Nới đoán tên
+    ///   Latin" (`loosensLatinCore`, hướng b) thì chỉ cần ≥ một nửa (`looksTransliterated`).
+    /// "Khác âm Hán-Việt" do `latinAffixed` xét. Không ra Latin ⇒ `nil`.
+    func latinCore(of core: Word) -> Proper? {
+        if let raw = dictionaries.trustedValue(core.string) {
+            let picked = pick(raw, key: core)
+            if Self.isLatinName(picked) { return Proper(text: picked, isGuessed: false) }
+        }
+        if let found = coverEntryOrCover(core) {
+            return Self.isLatinName(found) ? Proper(text: found, isGuessed: false) : nil
+        }
+        guard let latinModel, !translitChars.isEmpty else { return nil }
+        let transliterated = loosensLatinCore
+            ? looksTransliterated(core)
+            : core.scalars.allSatisfy { translitChars.contains($0) }
+        guard transliterated, let guess = latinModel.predict(core.scalars) else { return nil }
+        return Proper(text: guess, isGuessed: true)
     }
 
     /// `latin_core` (luật phân loại L16): `head` (name đã bỏ hậu tố dò), hoặc `head` bỏ một tiền tố của danh sách (mọi

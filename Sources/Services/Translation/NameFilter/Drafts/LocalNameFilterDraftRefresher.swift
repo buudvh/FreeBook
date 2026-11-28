@@ -9,7 +9,7 @@ import Foundation
 ///   quay lại. Gói hết name ⇒ xoá gói.
 /// - name ghép lại được (`LocalNameFilterMeaningComposer.canRecompose` — mọi loại trừ họ tộc) mà nghĩa đang có **bằng**
 ///   nghĩa máy ghép đã nhớ (`autoMeanings`) ⇒ ghép lại bằng đúng bộ ghép nghĩa của bộ lọc với danh sách hậu tố + tiền tố
-///   hiện tại + công tắc "Ưu tiên tên Latin" của truyện; cập nhật nghĩa, `autoMeanings`, cờ `isGuessedMeaning`. Nghĩa đã
+///   hiện tại + công tắc "Ưu tiên tên Latin" / "Nới đoán tên Latin" của truyện (name có ghi đè "Nới" riêng theo ghi đè); cập nhật nghĩa, `autoMeanings`, cờ `isGuessedMeaning`. Nghĩa đã
 ///   tự sửa (khác nghĩa máy) ⇒ giữ nguyên. Gói cũ chưa có `autoMeanings` ⇒ không ghép lại.
 /// - Bật Latin mà không nạp được mô hình ⇒ lần này không ghép lại (tránh ghi đè nghĩa Latin bằng nghĩa Hán-Việt).
 ///
@@ -25,6 +25,9 @@ enum LocalNameFilterDraftRefresher {
         let prefersLatinNames: Bool
         /// Danh sách "Tiền tố" hiệu lực của truyện (`LocalNameFilterPrefixStore.allPrefixes(bookId:)`).
         let prefixes: [LocalNameFilter.Suffix]
+        /// "Nới đoán tên Latin" hiệu lực của truyện (`LocalNameFilterLatinPreferenceStore.loosensLatin(bookId:)`); name có
+        /// ghi đè riêng (`AutoMeaning.loosensLatin`) ghép theo ghi đè.
+        let loosensLatinGuess: Bool
     }
 
     /// Gói sau cập nhật (ghi gần nhất trước). Gọi ngoài main.
@@ -34,7 +37,8 @@ enum LocalNameFilterDraftRefresher {
         // Gói đã ghép với đúng danh sách hậu tố / tiền tố + công tắc Latin này ⇒ không ghép lại (nghĩa không tự đổi khi không
         // ai đổi gì).
         let signature = LocalNameFilterMeaningComposer.signature(
-            suffixes: inputs.suffixes, prefersLatinNames: inputs.prefersLatinNames, prefixes: inputs.prefixes
+            suffixes: inputs.suffixes, prefersLatinNames: inputs.prefersLatinNames, prefixes: inputs.prefixes,
+            loosensLatin: inputs.loosensLatinGuess
         )
         let composer = await makeComposer(for: drafts, inputs: inputs, signature: signature)
         if Task.isCancelled { return drafts }
@@ -92,7 +96,8 @@ enum LocalNameFilterDraftRefresher {
             }
         }
         return LocalNameFilterMeaningComposer(
-            bookId: inputs.bookId, suffixes: inputs.suffixes, latinModel: latinModel, prefixes: inputs.prefixes
+            bookId: inputs.bookId, suffixes: inputs.suffixes, latinModel: latinModel, prefixes: inputs.prefixes,
+            loosensLatin: inputs.loosensLatinGuess
         )
     }
 
@@ -103,13 +108,17 @@ enum LocalNameFilterDraftRefresher {
         for index in draft.names.indices {
             let key = draft.names[index].original
             guard let auto = autoMeanings[key], draft.names[index].suggestedMeaning == auto.meaning,
-                  let rebuilt = composer.meaning(term: key, kind: auto.kind, previousMeaning: auto.meaning) else { continue }
+                  let rebuilt = composer.meaning(
+                      term: key, kind: auto.kind, previousMeaning: auto.meaning, loosensLatin: auto.loosensLatin
+                  ) else { continue }
             // Chỉ khi nghĩa đổi thật: nghĩa giữ nguyên thì không đụng cờ "đoán" (người dùng có thể đã xác nhận ở màn Sửa từ
             // — so cờ ở đây sẽ bật lại nhãn mỗi lần trang đầu hiện ra).
             guard rebuilt.meaning != auto.meaning else { continue }
             draft.names[index].suggestedMeaning = rebuilt.meaning
             draft.names[index].isGuessedMeaning = rebuilt.isGuessed
-            autoMeanings[key] = LocalNameFilterDraft.AutoMeaning(meaning: rebuilt.meaning, kind: auto.kind)
+            autoMeanings[key] = LocalNameFilterDraft.AutoMeaning(
+                meaning: rebuilt.meaning, kind: auto.kind, loosensLatin: auto.loosensLatin
+            )
             count += 1
         }
         draft.autoMeanings = autoMeanings

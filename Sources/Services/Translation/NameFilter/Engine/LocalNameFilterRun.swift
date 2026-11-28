@@ -215,7 +215,9 @@ public final class LocalNameFilterRun: @unchecked Sendable {
             finalReport, metrics: metrics, total: chapters.count, hanCount: engine.hanCount,
             stoppedEarly: stoppedEarly, usesLAC: engine.usesLAC,
             taggedLines: engine.lacTaggedLines,
-            latin: configuration.prefersLatinNames ? (engine.prefersLatin ? .on : .missingModel) : .off
+            latin: configuration.prefersLatinNames
+                ? (engine.prefersLatin ? .on(loose: configuration.loosensLatinGuess) : .missingModel)
+                : .off
         )
     }
 

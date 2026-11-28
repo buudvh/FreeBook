@@ -8,7 +8,8 @@ enum LocalNameFilterRunLog {
     /// Công tắc "Ưu tiên tên Latin" của lượt lọc.
     enum LatinState {
         case off
-        case on
+        /// Bật và có mô hình; `loose` = bật cả "Nới đoán tên Latin".
+        case on(loose: Bool)
         /// Bật mà không nạp được mô hình (đã log ❌) ⇒ lọc như tắt.
         case missingModel
     }
@@ -52,8 +53,9 @@ enum LocalNameFilterRunLog {
         switch latin {
         case .off:
             break
-        case .on:
-            parts.append("Latin bật · đoán \(snapshot.names.reduce(0) { $0 + ($1.isGuessedMeaning ? 1 : 0) })")
+        case .on(let loose):
+            let guessed = snapshot.names.reduce(0) { $0 + ($1.isGuessedMeaning ? 1 : 0) }
+            parts.append("Latin bật\(loose ? " (nới)" : "") · đoán \(guessed)")
         case .missingModel:
             parts.append("Latin bật nhưng thiếu mô hình")
         }

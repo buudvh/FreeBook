@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1121] - 2026-11-28
+
+### feat: lọc name local tin Name và VP riêng cho lõi tên Latin, thêm công tắc Nới đoán tên Latin theo truyện và theo name
+
+Đợt bổ sung 28/11 chiều (mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N2, N5, N6; plan "Plan đợt bổ sung", anh Bửu duyệt). Bản tham chiếu: `latin_core_of` của `Docs/Plans/local-name-filter-lac/name_meaning.py` (tham số `trusted`, `loose`).
+
+- Hướng a — lõi tên kiểu Latin tin mục người dùng đã chốt: `LocalNameFilterProperNames.latinCore(of:)` (file `+Latin`, chỉ `latinAffixed` gọi; tiền tố của mảnh tên `prefixed` vẫn dùng `latinName(of:)` như `latin_of`). Lõi (sau khi bỏ tiền tố / hậu tố) khớp trọn một mục Name (riêng → Chung → gốc trừ đã xoá) hoặc VP riêng của truyện (`LocalNameFilterDictionaries.trustedValue`, không gồm VP Chung / gốc) mà nghĩa chọn bằng `pick` là chữ Latin ⇒ nhận luôn, không xét bộ chữ phiên âm; nghĩa đó không phải chữ Latin ⇒ đi tiếp như cũ. "Khác âm Hán-Việt" vẫn xét ở `latinAffixed`. VP Chung / gốc giữ chốt chữ phiên âm (chặn 黑礁 "Black Lagoon"). 图铎 = Tudor (Name) ⇒ 图铎家族 "Tudor gia tộc". Luật phân loại L16 (`hasLatinCore`) không đổi (Python `latin_core` không dùng `trusted` / `LOOSE`).
+- Hướng b — công tắc "Nới đoán tên Latin" (mặc định tắt): bước mô hình đoán của **lõi** nhận lõi có ≥ một nửa số chữ là chữ phiên âm (`looksTransliterated`) thay vì mọi chữ (`LocalNameFilterProperNames.loosensLatinCore`, `Configuration.loosensLatinGuess`). Chỉ có tác dụng cùng "Ưu tiên tên Latin"; mọi chỗ truyền giá trị hiệu lực `LocalNameFilterLatinPreferenceStore.loosensLatin(bookId:)` (Latin và Nới).
+- Kho theo truyện: `LocalNameFilterLatinPreferenceStore` thành hai thể hiện `shared` ("Ưu tiên tên Latin", khoá `localNameFilterLatinByBook`) và `loose` (khoá `localNameFilterLooseLatinByBook`, chữ thường không dấu chấm ⇒ Backup tự gói); Đổi nguồn chép (`BookSourceMigrator.copyBookScopedSettings`), xoá truyện / bản cũ xoá (`removeBookScopedSettings`, `BookStorageManager.deleteBookSideData`).
+- Sheet Lọc name local (N5): hàng "Nới đoán tên Latin" + `?` + dòng phụ "Lõi chỉ cần ½ số chữ là chữ phiên âm" ngay dưới "Ưu tiên tên Latin"; tắt Latin ⇒ hàng mờ, công tắc khoá (giá trị đã lưu giữ nguyên). Log cuối lượt ghi "Latin bật (nới)".
+- Màn Sửa từ của màn duyệt (N6): hàng "Nới đoán tên Latin" + `?` + công tắc ngay dưới hàng Phân loại (`LocalNameFilterReviewLooseRow`), chỉ khi truyện bật "Ưu tiên tên Latin" và name có nghĩa máy ghép (trừ họ tộc). Áp **chỉ cho name đang sửa**: ghi đè nằm ở nghĩa máy ghép của gói tạm (`LocalNameFilterDraft.AutoMeaning.loosensLatin`, trường tuỳ chọn — gói cũ đọc được; init bắt buộc truyền để mọi lần ghép lại giữ ghi đè), `LocalNameFilterReviewSuffixContext.changeLoose` xếp cùng hàng đợi với thêm hậu tố / đổi Phân loại, ghép lại name đó theo công tắc mới; nghĩa máy đổi ⇒ áp lên hàng kể cả nghĩa đã sửa tay (mockup N6), cờ "đoán" theo kết quả, ô nghĩa của màn Sửa từ theo; không đổi ⇒ toast nhắc. Giá trị mở đầu = ghi đè của name, chưa có ⇒ công tắc của truyện.
+- Bộ ghép nghĩa: `LocalNameFilterMeaningComposer.init?(…, loosensLatin:)` + `meaning(…, loosensLatin:)` (ghi đè theo name, dựng bộ ghép thứ hai khi cần); dấu gói tạm `signature(…, loosensLatin:)` (bắt buộc, cả ba chỗ tính dấu truyền giá trị hiệu lực của truyện — ghi đè theo name không vào dấu, nó áp lúc ghép lại); gói tạm tự cập nhật / ghép lại sau khi thêm hậu tố / đổi Phân loại đều ghép theo ghi đè của từng name. `rulesVersion = 4` ⇒ mọi gói tạm ghép lại một lần (nghĩa đã sửa tay giữ).
+- Nấc vừa khít của màn Sửa từ: hàng Nới nằm trong `accessoryRows` và hiện / ẩn quyết định đồng bộ lúc dựng sheet ⇒ `DictEntryEditSheet+FittedDetent` đo cả hàng ngay lần đầu, không cần sửa cách đo.
+
 ## [1.3.1120] - 2026-11-28
 
 ### fix: bấm thể loại lúc màn xem đang tải phim sắp tự phát không đóng màn kẻo huỷ lượt phát
@@ -482,15 +496,3 @@ Anh Bửu: "sắp xếp mặc định theo chưa chọn lên trước và theo s
 - Là mặc định của luồng lọc local (kể cả mở lại gói tạm); menu vẫn có "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu — tích / bỏ tích một ô không làm hàng nhảy chỗ.
 - Luồng AI giữ nguyên ("Đã chọn trước", menu cũ). Bốn mục menu dựng bằng một hàm chung `sortMenuButton`.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1091] - 2026-11-27
-
-### fix: lọc name local giữ model khi chỉ lỗi đọc file, bộ luật bỏ dòng tên chương như bản Python, sửa loại đuôi 花 không tự bật
-
-Anh Bửu: "sửa luôn mấy lỗi nhẹ còn lại đi" — bốn lỗi nhẹ ghi nhận ở 1.3.1090.
-
-- **Lỗi đọc file model thoáng qua không còn xoá cả model**: thêm `LACModelError.readFailed` ("Không đọc được model nhận diện tên…", có "Thử lại"). Kiểm sha256 (`LACModelStore.verifyChecksums`), đọc file khi nạp (`LACTagger.load`) và đọc mẫu đối chiếu mà lỗi I/O ⇒ `readFailed`, **giữ** thư mục; chỉ sha lệch / sai định dạng (`invalidFiles`) mới xoá để tải lại 19 MB. Bộ lọc xử lý `readFailed` như hai lỗi kia (sự kiện `.failed`).
-- **Bộ luật bỏ dòng tên chương** (`第N章…`) trước khi đếm, như `split_chapters` của bản Python (`LocalNameFilterLACChapterTagger.removingChapterHeadings`, dùng chung hàm nhận dạng của phía LAC) — số lần / mảnh / `dict_common_head` khớp bản tham chiếu cả khi nội dung chương có dòng tên chương. Chương không có dòng nào như vậy ⇒ chữ giữ nguyên.
-- **Sửa loại của đuôi gốc 花 không làm công tắc tự bật**: lớp riêng danh sách đuôi có trường `format` (2). Dữ liệu cũ (`format` vắng) đọc vào thì ghi rõ `enabled = true` cho 花 người dùng đã tự thêm từ trước (giữ bật như cũ); mặc định bật / tắt từ nay chỉ theo cờ `|off` của bản gốc.
-- **`Name.chapterCount`**: không màn hay luật nào dùng ⇒ không tốn công đếm lại trên chữ từng chương; ghi rõ nghĩa (hàng LAC = số chương LAC gắn nhãn thực thể; hàng bộ luật = số chương sinh ứng viên).
-- `translation.md`: ghi `readFailed` và việc bỏ dòng tên chương. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.

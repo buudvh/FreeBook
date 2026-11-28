@@ -8,8 +8,9 @@ import SwiftUI
 /// 1. Chọn phạm vi (`+Setup`): như "Lọc name nhiều chương" của AI (`ReaderAIBatchPromptSheet`) bỏ "Tiếp nối"; không đọc /
 ///    ghi mặc định của sheet AI. "Gói tạm chưa lưu" ở đầu (`+Drafts`, chỉ khi có gói), "Loại cần tìm" (`+Categories`,
 ///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3), "Độ dài name" (thanh kéo hai đầu, nhớ bằng `@AppStorage`) +
-///    "Ưu tiên tên Latin" (theo truyện, `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở bốn màn quản lý dùng
-///    chung mọi truyện (Hậu tố, Tiền tố, Họ, Không phải name).
+///    "Ưu tiên tên Latin" + "Nới đoán tên Latin" (theo truyện, `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở
+///    bốn màn quản lý (Hậu tố, Tiền tố, Họ, Không phải name) — chung mọi truyện, Hậu tố / Tiền tố / Không phải name có thêm
+///    bản riêng của truyện.
 ///    Không có hàng tải model: chưa có model thì bước 2 tự tải trước.
 /// 2. Đang lọc (`LocalNameFilterProgressView`): "Tải model" (lần đầu) rồi "Phân tích chương", name hiện dần; "Dừng" =
 ///    phân tích nốt phần đã đọc rồi sang bước 3. Lỗi ⇒ "Quay lại" / "Thử lại" (đúng cấu hình cũ).
@@ -53,6 +54,9 @@ struct LocalNameFilterSheet: View {
     @State var minCount: Int = 3
     /// "Ưu tiên tên Latin" của truyện này — đọc khi mở / quay về, ghi ngay khi bấm (`LocalNameFilterLatinPreferenceStore`).
     @State var prefersLatinNames: Bool = false
+    /// "Nới đoán tên Latin" của truyện này (giá trị đã lưu, kể cả khi "Ưu tiên tên Latin" đang tắt) — như `prefersLatinNames`
+    /// (`LocalNameFilterLatinPreferenceStore.loose`).
+    @State var loosensLatinGuess: Bool = false
     /// Số mục của bốn danh sách (hậu tố, tiền tố, họ, "Không phải name") — đọc lại mỗi khi quay về từ màn quản lý. Hậu tố /
     /// tiền tố: số Chung + số riêng của truyện này (hàng ghi "1.299 · 3 riêng").
     @State var suffixCount: Int = 0
@@ -173,7 +177,9 @@ struct LocalNameFilterSheet: View {
             prefersLatinNames: prefersLatinNames,
             prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId),
             minLength: length.lowerBound,
-            maxLength: length.upperBound >= LocalNameFilterLengthRangeSlider.bounds.upperBound ? nil : length.upperBound
+            maxLength: length.upperBound >= LocalNameFilterLengthRangeSlider.bounds.upperBound ? nil : length.upperBound,
+            // Giá trị hiệu lực: "Nới" chỉ có tác dụng cùng "Ưu tiên tên Latin" (dấu gói tạm tính cùng một cách).
+            loosensLatinGuess: prefersLatinNames && loosensLatinGuess
         )
         let numbers = Dictionary((chapters ?? []).map { ($0.index, $0.number) }, uniquingKeysWith: { first, _ in first })
         session.start(LocalNameFilterSession.StartRequest(

@@ -9,6 +9,8 @@ import Foundation
 ///   hậu tố / mở đầu bằng tiền tố đó (còn ≥ 1 chữ phía bên kia), nghĩa vẫn do máy ghép — bằng đúng bộ ghép nghĩa của bộ lọc
 ///   với danh sách hậu tố + tiền tố hiện tại + công tắc "Ưu tiên tên Latin" của truyện.
 ///
+/// - bật / tắt **"Nới đoán tên Latin" cho riêng một name** (`changeLoose`, 2026-11-28 — mockup khung N6): ghi đè nằm trong
+///   nghĩa máy ghép của gói tạm (`AutoMeaning.loosensLatin`), mọi lượt ghép lại sau đó giữ ghi đè.
 /// - **đổi Phân loại** của một name trong lượt duyệt (`changeKind`, 2026-11-28 — mockup
 ///   https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2, hợp đồng lõi mục 7): nghĩa máy ghép + loại của gói tạm theo
 ///   nhóm mới, ghép lại nghĩa khi người dùng chưa sửa tay; nhóm lúc lọc nhớ trong bộ nhớ (`originalCategory`), không lưu.
@@ -104,16 +106,18 @@ public final class LocalNameFilterReviewSuffixContext {
     @MainActor
     func recompose(_ names: [AIExtractedName], affix: String, flavor: LocalNameFilterAffixListFlavor) async -> [UUID: Change] {
         guard var auto = autoMeanings, !affix.isEmpty else { return [:] }
-        let candidates: [(id: UUID, term: String, kind: LocalNameFilter.Kind, old: String)] = names.compactMap { item in
-            guard let entry = auto[item.original], LocalNameFilterMeaningComposer.canRecompose(entry.kind),
-                  item.suggestedMeaning == entry.meaning,
-                  flavor.remainder(of: item.original, removing: affix) != nil else { return nil }
-            return (item.id, item.original, entry.kind, item.suggestedMeaning)
-        }
+        let candidates: [(id: UUID, term: String, kind: LocalNameFilter.Kind, old: String, loose: Bool?)] =
+            names.compactMap { item in
+                guard let entry = auto[item.original], LocalNameFilterMeaningComposer.canRecompose(entry.kind),
+                      item.suggestedMeaning == entry.meaning,
+                      flavor.remainder(of: item.original, removing: affix) != nil else { return nil }
+                return (item.id, item.original, entry.kind, item.suggestedMeaning, entry.loosensLatin)
+            }
         guard !candidates.isEmpty else { return [:] }
 
-        // Nghĩa máy ghép lần trước đi kèm: tên người giữ danh xưng 1 chữ đã dùng ("Lâm ca") như gói tạm tự cập nhật.
-        let terms = candidates.map { (term: $0.term, kind: $0.kind, previous: $0.old) }
+        // Nghĩa máy ghép lần trước đi kèm: tên người giữ danh xưng 1 chữ đã dùng ("Lâm ca") như gói tạm tự cập nhật. Name có
+        // ghi đè "Nới đoán tên Latin" riêng ghép theo ghi đè.
+        let terms = candidates.map { (term: $0.term, kind: $0.kind, previous: $0.old, loosensLatin: $0.loose) }
         guard let rebuilt = await composeMeanings(terms, reason: "thêm \(flavor.lowercasedNoun)") else { return [:] }
 
         var changes: [UUID: Change] = [:]
@@ -122,7 +126,9 @@ public final class LocalNameFilterReviewSuffixContext {
             // cờ — so cờ ở đây sẽ bật lại nhãn và đếm dư vào toast).
             guard let built = rebuilt[candidate.term], built.meaning != candidate.old else { continue }
             changes[candidate.id] = Change(old: candidate.old, new: built.meaning, isGuessed: built.isGuessed)
-            auto[candidate.term] = LocalNameFilterDraft.AutoMeaning(meaning: built.meaning, kind: candidate.kind)
+            auto[candidate.term] = LocalNameFilterDraft.AutoMeaning(
+                meaning: built.meaning, kind: candidate.kind, loosensLatin: candidate.loose
+            )
         }
         if !changes.isEmpty {
             // Chỉ gộp khoá vừa đổi vào bản hiện tại (bản chụp `auto` có từ trước các `await`).
@@ -160,8 +166,10 @@ public final class LocalNameFilterReviewSuffixContext {
             var machineMeaning = entry.meaning
             var change: Change?
             if LocalNameFilterMeaningComposer.canRecompose(kind),
-               let built = await self.composeMeanings([(term: term, kind: kind, previous: entry.meaning)],
-                                                      reason: "đổi phân loại")?[term] {
+               let built = await self.composeMeanings(
+                   [(term: term, kind: kind, previous: entry.meaning, loosensLatin: entry.loosensLatin)],
+                   reason: "đổi phân loại"
+               )?[term] {
                 machineMeaning = built.meaning
                 if let item = currentNames().first(where: { $0.id == itemId }),
                    item.suggestedMeaning == entry.meaning, built.meaning != item.suggestedMeaning {
@@ -170,7 +178,9 @@ public final class LocalNameFilterReviewSuffixContext {
             }
             // Gộp vào bản hiện tại (các `await` ở trên có thể đã để lượt khác ghi `autoMeanings`).
             var current = self.autoMeanings ?? [:]
-            current[term] = LocalNameFilterDraft.AutoMeaning(meaning: machineMeaning, kind: kind)
+            current[term] = LocalNameFilterDraft.AutoMeaning(
+                meaning: machineMeaning, kind: kind, loosensLatin: self.autoMeanings?[term]?.loosensLatin
+            )
             self.autoMeanings = current
             self.onChange(current)
             AppLogger.shared.log("🔎 [LọcName] Đổi phân loại \(term) ⇒ \(kind.label)"
@@ -179,17 +189,88 @@ public final class LocalNameFilterReviewSuffixContext {
         }
     }
 
+    /// Công tắc **"Nới đoán tên Latin" của riêng name** ở màn Sửa từ (2026-11-28, mockup
+    /// https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N6): ghi đè của name, chưa có ⇒ công tắc của truyện (= công
+    /// tắc của lượt lọc / lần ghép gần nhất của gói tạm). `nil` = không có hàng: gói cũ chưa có nghĩa máy ghép, name không
+    /// có trong đó, hoặc loại không ghép lại được (họ tộc).
+    func loosensLatin(of term: String) -> Bool? {
+        guard let entry = autoMeanings?[term], LocalNameFilterMeaningComposer.canRecompose(entry.kind) else { return nil }
+        return entry.loosensLatin ?? LocalNameFilterLatinPreferenceStore.loosensLatin(bookId: bookId)
+    }
+
+    /// Kết quả một lần bật / tắt "Nới" của một name.
+    enum LooseOutcome {
+        /// Nghĩa máy ghép đổi ⇒ màn duyệt áp lên hàng (kể cả nghĩa đã sửa tay — người dùng chủ động ghép lại name này).
+        case changed(Change)
+        /// Ghép lại ra đúng nghĩa cũ (công tắc không ảnh hưởng name này).
+        case unchanged
+        /// Không ghép được (thiếu mô hình đoán tên Latin, VietPhrase chưa nạp) — đã log.
+        case failed
+    }
+
+    /// Bật / tắt "Nới" **chỉ cho name `term`** (anh Bửu chọn — không đụng name khác): ghi ghi đè vào nghĩa máy ghép ngay (gói
+    /// tạm nhớ, mở lại màn Sửa từ thấy đúng trạng thái dù lượt ghép chưa xong), rồi xếp vào **cùng hàng đợi** với
+    /// `enqueueRecompose` / `changeKind` một lượt ghép lại name đó theo công tắc mới. Nghĩa máy đổi ⇒ `apply(.changed)` với
+    /// nghĩa đang hiện của hàng làm `old` (mockup N6: nghĩa đã sửa tay cũng đổi theo — bấm Cập nhật để sửa lại), cờ "đoán"
+    /// theo kết quả. Lượt đã lỗi thời (người dùng bật / tắt tiếp trong lúc chờ) ⇒ bỏ, lượt sau lo.
+    @MainActor
+    func changeLoose(
+        of term: String,
+        itemId: UUID,
+        to loose: Bool,
+        currentNames: @escaping @MainActor () -> [AIExtractedName],
+        apply: @escaping @MainActor (LooseOutcome) -> Void
+    ) {
+        guard var entry = autoMeanings?[term] else { return }
+        entry.loosensLatin = loose
+        var current = autoMeanings ?? [:]
+        current[term] = entry
+        autoMeanings = current
+        onChange(current)
+        let previous = queue
+        queue = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self, let start = self.autoMeanings?[term], start.loosensLatin == loose else { return }
+            guard let built = await self.composeMeanings(
+                [(term: term, kind: start.kind, previous: start.meaning, loosensLatin: loose)],
+                reason: "đổi Nới đoán tên Latin"
+            )?[term] else {
+                apply(.failed)
+                return
+            }
+            // Các `await` ở trên có thể đã để lượt khác ghi `autoMeanings` (hoặc người dùng bật / tắt lại).
+            guard var latest = self.autoMeanings?[term], latest.loosensLatin == loose else { return }
+            guard built.meaning != latest.meaning else {
+                apply(.unchanged)
+                return
+            }
+            latest.meaning = built.meaning
+            var updated = self.autoMeanings ?? [:]
+            updated[term] = latest
+            self.autoMeanings = updated
+            self.onChange(updated)
+            AppLogger.shared.log("🔎 [LọcName] \(loose ? "Bật" : "Tắt") Nới đoán tên Latin cho \(term) ⇒ ghép lại nghĩa")
+            guard let item = currentNames().first(where: { $0.id == itemId }), item.suggestedMeaning != built.meaning else {
+                apply(.unchanged)
+                return
+            }
+            apply(.changed(Change(old: item.suggestedMeaning, new: built.meaning, isGuessed: built.isGuessed)))
+        }
+    }
+
     /// Ghép nghĩa máy cho `terms` bằng đúng bộ ghép của bộ lọc với danh sách hậu tố + tiền tố **hiệu lực của truyện**
-    /// (`allSuffixes(bookId:)` / `allPrefixes(bookId:)`, khớp dấu gói tạm) + mô hình Latin khi truyện bật "Ưu tiên tên Latin";
-    /// chạy ngoài main. Trả nghĩa theo chữ Hán (thiếu ⇒ không ghép được); `nil` = bật Latin mà thiếu mô hình (đã log) — nơi
+    /// (`allSuffixes(bookId:)` / `allPrefixes(bookId:)`, khớp dấu gói tạm) + mô hình Latin khi truyện bật "Ưu tiên tên Latin"
+    /// + công tắc "Nới đoán tên Latin" của truyện (term có ghi đè riêng — `loosensLatin` khác `nil` — theo ghi đè); chạy
+    /// ngoài main. Trả nghĩa theo chữ Hán (thiếu ⇒ không ghép được); `nil` = bật Latin mà thiếu mô hình (đã log) — nơi
     /// gọi không đổi gì. `reason` vào dòng log lỗi.
     @MainActor
     private func composeMeanings(
-        _ terms: [(term: String, kind: LocalNameFilter.Kind, previous: String)],
+        _ terms: [(term: String, kind: LocalNameFilter.Kind, previous: String, loosensLatin: Bool?)],
         reason: String
     ) async -> [String: (meaning: String, isGuessed: Bool)]? {
         let bookId = self.bookId
         let suffixes = LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId)
+        let loosensLatin = LocalNameFilterLatinPreferenceStore.loosensLatin(bookId: bookId)
         var latinModel: LocalNameFilterLatinModel?
         if LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId) {
             do {
@@ -206,13 +287,15 @@ public final class LocalNameFilterReviewSuffixContext {
         let prefixes = LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
         return await Task.detached(priority: .userInitiated) { () -> [String: (meaning: String, isGuessed: Bool)] in
             guard let composer = LocalNameFilterMeaningComposer(
-                bookId: bookId, suffixes: suffixes, latinModel: model, prefixes: prefixes
+                bookId: bookId, suffixes: suffixes, latinModel: model, prefixes: prefixes, loosensLatin: loosensLatin
             ) else {
                 return [:]
             }
             var result: [String: (meaning: String, isGuessed: Bool)] = [:]
             for item in terms where result[item.term] == nil {
-                if let built = composer.meaning(term: item.term, kind: item.kind, previousMeaning: item.previous) {
+                if let built = composer.meaning(
+                    term: item.term, kind: item.kind, previousMeaning: item.previous, loosensLatin: item.loosensLatin
+                ) {
                     result[item.term] = built
                 }
             }

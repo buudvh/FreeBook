@@ -21,7 +21,7 @@ extension LocalNameFilterSession {
         /// sách đuôi (`LocalNameFilterDraftRefresher`); thêm đuôi ở màn duyệt ghép lại thì cập nhật theo
         /// (`makeReviewSuffixContext`). `nil` = mở từ gói của bản trước.
         var autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
-        /// Dấu danh sách đuôi + công tắc Latin mà `autoMeanings` ứng với (`LocalNameFilterDraft.meaningSignature`).
+        /// Dấu danh sách đuôi + công tắc Latin / nới mà `autoMeanings` ứng với (`LocalNameFilterDraft.meaningSignature`).
         var meaningSignature: String?
     }
 
@@ -40,7 +40,8 @@ extension LocalNameFilterSession {
             self.reviewContext?.meaningSignature = LocalNameFilterMeaningComposer.signature(
                 suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId),
                 prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId),
-                prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
+                prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId),
+                loosensLatin: LocalNameFilterLatinPreferenceStore.loosensLatin(bookId: bookId)
             )
         }
     }
@@ -49,7 +50,8 @@ extension LocalNameFilterSession {
     static func autoMeanings(of names: [LocalNameFilter.Name]) -> [String: LocalNameFilterDraft.AutoMeaning] {
         var result: [String: LocalNameFilterDraft.AutoMeaning] = [:]
         for name in names where result[name.term] == nil {
-            result[name.term] = LocalNameFilterDraft.AutoMeaning(meaning: name.meaning, kind: name.kind)
+            // Lúc lọc mọi name theo công tắc "Nới" của truyện ⇒ chưa có ghi đè riêng.
+            result[name.term] = LocalNameFilterDraft.AutoMeaning(meaning: name.meaning, kind: name.kind, loosensLatin: nil)
         }
         return result
     }

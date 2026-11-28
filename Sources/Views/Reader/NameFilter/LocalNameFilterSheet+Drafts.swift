@@ -79,7 +79,8 @@ extension LocalNameFilterSheet {
                 blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
                 suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bid),
                 prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bid),
-                prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bid)
+                prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bid),
+                loosensLatinGuess: LocalNameFilterLatinPreferenceStore.loosensLatin(bookId: bid)
             )
         }
         let refreshed = await Task.detached(priority: .userInitiated) {

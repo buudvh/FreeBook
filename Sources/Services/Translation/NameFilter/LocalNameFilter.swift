@@ -134,6 +134,10 @@ public enum LocalNameFilter {
         /// "Ưu tiên tên Latin" (theo truyện, mặc định tắt): mảnh tên trông như phiên âm ⇒ nghĩa chữ Latin trong từ điển
         /// (班森 Ban Sâm/Benson ⇒ Benson); không có trong từ điển ⇒ mô hình đoán (`Name.isGuessedMeaning`).
         public var prefersLatinNames: Bool
+        /// "Nới đoán tên Latin" (2026-11-28, theo truyện, mặc định tắt; chỉ có tác dụng cùng `prefersLatinNames`): mô hình
+        /// đoán **lõi** của tên kiểu Latin (sau khi bỏ tiền tố / hậu tố) khi ≥ một nửa số chữ là chữ phiên âm, thay vì mọi
+        /// chữ. Nơi gọi truyền giá trị **hiệu lực** (`LocalNameFilterLatinPreferenceStore.loosensLatin(bookId:)`).
+        public var loosensLatinGuess: Bool
 
         public init(
             minCount: Int,
@@ -143,7 +147,8 @@ public enum LocalNameFilter {
             prefersLatinNames: Bool = false,
             prefixes: [Suffix] = [],
             minLength: Int = 2,
-            maxLength: Int? = nil
+            maxLength: Int? = nil,
+            loosensLatinGuess: Bool = false
         ) {
             self.minCount = minCount
             self.suffixes = suffixes
@@ -153,6 +158,7 @@ public enum LocalNameFilter {
             self.prefixes = prefixes
             self.minLength = minLength
             self.maxLength = maxLength
+            self.loosensLatinGuess = loosensLatinGuess
         }
     }
 
