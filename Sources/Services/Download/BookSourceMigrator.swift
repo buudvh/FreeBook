@@ -3,7 +3,8 @@ import Foundation
 /// Thiết lập theo `bookId` phải đi theo truyện khi đổi nguồn (bookId đổi): từ điển + rule riêng, phiên AI chat, trí nhớ
 /// AI, phạm vi + điểm tiếp nối quét tên riêng, prompt quét tên Gần đây (`AINameScanPromptStore`), chế độ dịch riêng, bộ
 /// dịch riêng (`TranslationEngineStore`), dấu trang + ghi chú (`BookAnnotationStore`), gói name tạm của Lọc name local
-/// (`LocalNameFilterDraftStore`). Thêm kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
+/// (`LocalNameFilterDraftStore`), tiền tố / hậu tố riêng truyện của Lọc name local (`LocalNameFilterBookAffixStore`). Thêm
+/// kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
 ///
 /// Từ 1.3.689 tách hai bước: `copyBookScopedSettings` chỉ **chép** (không đụng bản cũ; truyện đích đã có bản riêng thì giữ
 /// của đích), `removeBookScopedSettings` xoá bản của một truyện sau mốc chốt (hoặc của truyện mới khi lùi lại). Trước đây
@@ -47,6 +48,9 @@ public actor BookSourceMigrator {
         LocalNameFilterDraftStore.copy(from: oldBookId, to: newBookId)
         // Công tắc "Ưu tiên tên Latin" của Lọc name local (truyện đích đã có giá trị riêng thì giữ).
         LocalNameFilterLatinPreferenceStore.shared.copy(from: oldBookId, to: newBookId)
+        // Tiền tố / hậu tố riêng truyện của Lọc name local: gộp theo khoá, mục truyện cũ thắng.
+        LocalNameFilterBookAffixStore.suffixes.copy(from: oldBookId, to: newBookId)
+        LocalNameFilterBookAffixStore.prefixes.copy(from: oldBookId, to: newBookId)
 
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)
         if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
@@ -80,6 +84,8 @@ public actor BookSourceMigrator {
         Task { @MainActor in BookAnnotationRepository.shared.invalidate(bookId: bookId) }
         LocalNameFilterDraftStore.deleteAll(bookId: bookId)
         LocalNameFilterLatinPreferenceStore.shared.remove(bookId: bookId)
+        LocalNameFilterBookAffixStore.suffixes.remove(bookId: bookId)
+        LocalNameFilterBookAffixStore.prefixes.remove(bookId: bookId)
         if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
         }

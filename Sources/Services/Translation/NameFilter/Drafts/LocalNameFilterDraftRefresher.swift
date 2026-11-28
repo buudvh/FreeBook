@@ -20,10 +20,11 @@ enum LocalNameFilterDraftRefresher {
     struct Inputs: Sendable {
         let bookId: String
         let blockedTerms: Set<String>
+        /// Danh sách "Hậu tố" hiệu lực của truyện (`LocalNameFilterSuffixStore.allSuffixes(bookId:)` — Chung + Riêng).
         let suffixes: [LocalNameFilter.Suffix]
         let prefersLatinNames: Bool
-        /// Danh sách "Tiền tố" (mặc định = danh sách hiện tại).
-        var prefixes: [LocalNameFilter.Suffix] = LocalNameFilterPrefixStore.shared.allPrefixes()
+        /// Danh sách "Tiền tố" hiệu lực của truyện (`LocalNameFilterPrefixStore.allPrefixes(bookId:)`).
+        let prefixes: [LocalNameFilter.Suffix]
     }
 
     /// Gói sau cập nhật (ghi gần nhất trước). Gọi ngoài main.

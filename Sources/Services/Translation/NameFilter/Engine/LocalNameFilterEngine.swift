@@ -60,7 +60,8 @@ final class LocalNameFilterEngine {
         properNames = LocalNameFilterProperNames(
             dictionaries: dictionaries,
             latinModel: configuration.prefersLatinNames ? latinModel : nil,
-            prefixes: configuration.prefixes
+            prefixes: configuration.prefixes,
+            affixes: configuration.suffixes
         )
     }
 
@@ -95,7 +96,8 @@ final class LocalNameFilterEngine {
         var rescued = 0
         if let lacCounts {
             let pipeline = LocalNameFilterLACPipeline(
-                setup: setup, dictionaries: dictionaries, counts: lacCounts, counter: counter, titles: occurrences.titles
+                setup: setup, dictionaries: dictionaries, counts: lacCounts, counter: counter, titles: occurrences.titles,
+                properNames: properNames
             )
             guard let lac = pipeline.run() else { return nil }
             rescued = lac.rescued

@@ -2,6 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1112] - 2026-11-28
+
+### feat: lọc name local tách tiền tố hậu tố khỏi tên Latin, luật L16 theo hậu tố khi lõi là tên Latin, thêm tiền tố hậu tố riêng truyện
+
+Plan "Tiền tố hậu tố riêng truyện" (anh Bửu duyệt 2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2)
+phần A + B4–B5, chép đúng bản tham chiếu `Docs/Plans/local-name-filter-lac/name_meaning.py` (`latin_affixed`) và
+`lacpipe.py` (`latin_core`, L16).
+
+- A1 tên kiểu Latin: `LocalNameFilterProperNames.latinAffixed` (file mới `+Latin`) bỏ tiền tố ở đầu (danh sách Tiền tố,
+  mọi loại) và / hoặc hậu tố ở cuối (mọi mục danh sách Hậu tố, kể cả Nhân danh, 1–6 chữ), dài nhất trước, ít nhất một
+  phía; lõi ≥ 2 chữ, không dấu ngăn, ra tên Latin qua `latinName(of:)` và khác âm Hán-Việt ⇒ "tiền tố + Latin + hậu tố"
+  theo vị trí. `LocalNameFilterMeaningBuilder` gọi ngay sau `nameLike` ở cả hàng bộ luật lẫn hàng phía LAC, mọi loại trừ
+  họ tộc; tên người vẫn báo danh xưng. 古赫密斯语 ⇒ "cổ Hermes ngữ", 古弗萨克语 ⇒ "cổ Fusak ngữ", bật Latin: 鲁恩语 ⇒
+  "Ruen ngữ", 莫里安语 ⇒ "Morian ngữ". `LocalNameFilterProperNames.init` thêm `affixes:` bắt buộc.
+- A2 L16 (`LocalNameFilterLACPipeline+Kind`): LAC bảo người + đuôi yếu + hậu tố địa danh / tổ chức, sau L2 / L1: phần
+  trước hậu tố (hoặc nó bỏ một tiền tố của danh sách) có ≥ 1 nghĩa từ điển (tách `/` `|` `;`) là chữ Latin khác âm
+  Hán-Việt, khoá có chữ phiên âm ⇒ theo hậu tố (`hasLatinCore`), không theo công tắc Latin. 霍伊河 Nhân danh ⇒ Địa danh
+  ("Hoắc Y hà", bật Latin "Khoy hà"), 苏尼亚海 ⇒ Địa danh "Sonia hải". `LocalNameFilterLACPipeline` thêm `properNames`.
+- A3 `LocalNameFilterMeaningComposer.rulesVersion = 3` ⇒ mọi gói tạm ghép lại một lần (nghĩa đã sửa tay giữ).
+- B4 kho riêng truyện `LocalNameFilterBookAffixStore` (`.suffixes` / `.prefixes`, `UserDefaults`
+  `localNameFilterBookSuffixes` / `localNameFilterBookPrefixes` = JSON theo `bookId`, Backup tự gói): thêm / sửa / xoá
+  cùng luật khoá + nghĩa với danh sách Chung, trùng khoá trong truyện ⇒ lỗi. Đổi nguồn gộp theo khoá (mục truyện cũ
+  thắng), xoá truyện / bản cũ sau mốc chốt xoá theo (`BookSourceMigrator`, `BookStorageManager.deleteBookSideData`).
+- B5 danh sách hiệu lực = Riêng + Chung, Riêng thắng cùng chữ: `LocalNameFilterAffixListStore.effective(bookId:)`,
+  `LocalNameFilterSuffixStore.allSuffixes(bookId:)`, `LocalNameFilterPrefixStore.allPrefixes(bookId:)`; thao tác theo
+  phạm vi R | C + chuyển R ↔ C (`+Scope`: `Scope`, `ScopedKey`, `keyError(_:scope:bookId:original:)`,
+  `save(...scope:bookId:original:)`, `delete(key:scope:bookId:)`). Sheet Lọc name local, gói tạm tự cập nhật, dấu gói
+  tạm, ghép lại ở màn duyệt đổi sang bản theo truyện; `signature` / composer / `DraftRefresher.Inputs` bỏ mặc định
+  `prefixes`. Bộ dò `detectionSuffixes` không đổi; giao diện chưa đổi.
+
 ## [1.3.1111] - 2026-11-28
 
 ### fix: lọc name local ghép nghĩa bằng hậu tố dài nhất cho cả name của bộ luật, tên kiểu Hán luôn bóc tiền tố hậu tố thay vì lấy nghĩa VP cả cụm
@@ -405,22 +435,3 @@ Plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục D (anh Bửu duyệt 2026-11-
 - Xét từng đuôi trên 6 truyện: chỉ **花** phân loại sai tên người (李翠花) ngang số mục đúng ⇒ tắt sẵn; 芝 gặp một tên người (宋韵芝) nhưng 2/3 đúng ⇒ giữ. **关** tắt sẵn (cùng 路 区 观 团).
 - Ghi đè cũ của người dùng giữ nguyên: bật / tắt đuôi gốc vẫn theo `enabled`; ai đã tự thêm đuôi 花 (loại địa danh / tông môn) trước bản này vẫn bật (`LocalNameFilterSuffixOverrides.bundledOffLater`). Parser / store nhận `term` qua `SuffixKind`.
 - Chú thích đổi tên danh sách thành "Đuôi địa danh, tổ chức, thuật ngữ" (loại `sect` giữ chữ cũ, hiển thị "Tổ chức").
-
-## [1.3.1085] - 2026-11-27
-
-### feat: lọc name local dùng model LAC gắn nhãn theo chương, hợp với bộ luật, lọc theo loại và giữ name đã có
-
-### feat: lọc name local dùng model LAC gắn nhãn theo chương, hợp với bộ luật, lọc theo loại và giữ name đã có
-
-Đợt "Lọc name local bằng LAC" (plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục C + phần engine bước 0, anh Bửu duyệt 2026-11-27). Bản tham chiếu Python `Docs/Plans/local-name-filter-lac/` (`lacpipe.py` + `local_name_filter2.py` cờ `V3` / `KEEP_KNOWN`) sửa và chạy đủ 6 truyện trước; bản Python soi gương cấu trúc Swift khớp hoàn toàn bản tham chiếu trên 6 truyện (hàng, loại, số lần, nghĩa, cờ đã có, lý do bỏ, số hàng hợp).
-
-- **Chạy** (`LocalNameFilterRun`): chụp từ điển (thiếu VP thì báo ngay, không tải model) ⇒ `LACModel.prepare` phát `.preparingModel(fraction:)` thưa ≥ 1 %; tải lỗi / file hỏng ⇒ `.failed` (màn có "Thử lại"); model tự kiểm lệch ⇒ log ❌ rồi chạy **chỉ bộ luật** như trước bản LAC. Mỗi khối 24 chương: đọc ⇒ gắn nhãn LAC song song theo chương (`LocalNameFilterLACChapterTagger`, tối đa số nhân − 1, mỗi dòng gọi `tag` đúng một lần, bỏ dòng `第N章` / dòng không có chữ Hán) ⇒ cộng theo thứ tự chương. Cập nhật dần, Dừng, huỷ giữ như cũ.
-- **Phía LAC** (`LocalNameFilterLACPipeline`, bước 2–4 của `lacpipe.py`): bóc ≤ 2 chữ nhẹ cuối, gộp tên + 1 chữ khi phần tên mạnh ≥ 5 lần, mảnh ≥ 60 %; lọc Ít nhất N lần / từ thường / hư từ / đầu là từ thường / họ + từ thường / chữ dính; phân loại theo đuôi dài nhất (địa danh / tổ chức / thuật ngữ) rồi nhãn LAC (hoà: người > nơi > tổ chức > thuật ngữ), LAC bảo người + đuôi yếu (山 河…) ⇒ vẫn là người. Luật (e): từ VP nghĩa thường nhưng có đuôi không yếu, ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác ⇒ giữ (菩提丹, 青山县, 华山派 — 6 truyện cứu 5 mục, không rác).
-- **Bước hợp** (`LocalNameFilterOutputBuilder`): thêm hàng bộ luật (cờ v3: chữ thời gian / hướng trong tên, chữ cấm trong phần trước đuôi, tên + chữ nhẹ, họ hay dính từ thường mà không có bằng chứng — `LocalNameFilterSurnameBoundness`, `titleAfter`) chưa có, không phải mảnh, không phải name đã có: địa danh / tổ chức / họ tộc; tên người chỉ khi LAC từng gắn PER.
-- **Name đã có không còn ẩn** (cả hai chế độ): giữ trong danh sách, đếm `Snapshot.knownCount`; bộ luật giữ cả khi mọi cách hiểu bị luật bỏ. "Không phải name" + "Loại cần tìm" (`Configuration.categories`) lọc ở đầu ra, cả bản hiện dần.
-- **Nghĩa**: người / danh xưng như cũ (họ dò theo Danh sách họ); có đuôi ⇒ phần riêng viết hoa + nghĩa đuôi trước / sau (五气丹 → "Ngũ Khí đan"); thuật ngữ không đuôi ⇒ âm từng chữ viết hoa.
-- Từ phía LAC khoá theo code point (`LocalNameFilterWord`): dài tuỳ ý, có dấu `·` hay chữ khối mở rộng (日月皇家魂导师学院, 奥斯汀·格里芬, 玄𫄸).
-- Đuôi loại `term` không vào bộ luật (không sinh ứng viên), chỉ phân loại + dựng nghĩa phía LAC.
-- Log `🔎 [LọcName] Xong`: thêm chế độ, thời gian model / gắn nhãn / lọc LAC, `đã có` (thay `ẩn`), số theo loại, số hàng hợp + (e); `bỏ […]` là lý do phía LAC (trùng tên `lacpipe.py`), `luật bỏ […]` là bộ luật.
-- Số Python (mặc định app, 6 truyện): Sư muội 268 name (97 đã có + 171 mới), Võ Thánh 237, Chư thiên 100, Tổng võ 63, Từ cung 22, Đấu La 658 (382 + 276) — phần tăng đúng bằng số name đã có từng bị ẩn.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch (Windows); `LACModel.prepare` còn là bản giữ chỗ tới khi gộp phần model; màn hình (`Views/`) còn dùng `hiddenKnownCount` tới khi gộp phần giao diện.

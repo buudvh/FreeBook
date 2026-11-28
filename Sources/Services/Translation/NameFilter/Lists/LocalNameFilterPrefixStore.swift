@@ -23,12 +23,19 @@ final class LocalNameFilterPrefixStore: LocalNameFilterAffixListStore {
         super.init(
             defaultsKey: LocalNameFilterPrefixStore.userDefaultsKey,
             resourceName: LocalNameFilterPrefixStore.bundledResourceName,
-            noun: "Tiền tố"
+            noun: "Tiền tố",
+            bookStore: .prefixes
         )
     }
 
-    /// Mọi tiền tố của danh sách, đúng dạng bộ lọc dùng (`LocalNameFilter.Configuration.prefixes`).
+    /// Mọi tiền tố của danh sách **Chung**, đúng dạng bộ lọc dùng. Chỗ có ngữ cảnh truyện dùng `allPrefixes(bookId:)`.
     func allPrefixes() -> [LocalNameFilter.Suffix] {
         entries().map(\.suffix)
+    }
+
+    /// Danh sách "Tiền tố" hiệu lực của một truyện = Riêng truyện + Chung, bản Riêng thắng cùng chữ
+    /// (`LocalNameFilter.Configuration.prefixes`, ghép nghĩa, dấu gói tạm). `bookId` rỗng ⇒ chỉ Chung.
+    func allPrefixes(bookId: String) -> [LocalNameFilter.Suffix] {
+        effective(bookId: bookId)
     }
 }

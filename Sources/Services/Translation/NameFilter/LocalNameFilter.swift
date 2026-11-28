@@ -114,10 +114,12 @@ public enum LocalNameFilter {
         /// Danh sách "Hậu tố" của người dùng — từ 2026-11-27 (cách A, anh Bửu) **chỉ** dùng để ghép nghĩa: đuôi địa danh /
         /// tổ chức / thuật ngữ cho name không phải tên người; đuôi Nhân danh là danh xưng của tên người (dài nhất thắng; 1 chữ
         /// chỉ chữ thân tộc đứng sau ≥ 3 tên khác nhau) và giữ phần thừa của luật `glued_fragment`. Dò ứng viên / luật lọc /
-        /// phân loại dùng bộ đuôi cố định của bản gốc (trừ đuôi `|off`), không theo danh sách này.
+        /// phân loại dùng bộ đuôi cố định của bản gốc (trừ đuôi `|off`), không theo danh sách này. Bản hiệu lực của truyện
+        /// (`LocalNameFilterSuffixStore.allSuffixes(bookId:)` = Riêng truyện + Chung, Riêng thắng cùng chữ — 2026-11-28).
         public var suffixes: [Suffix]
-        /// Danh sách "Tiền tố" của người dùng (`LocalNameFilterPrefixStore.allPrefixes()`, plan 2026-11-27-phan-loai-name
-        /// L7 / L10) — chỉ ghép nghĩa: mảnh tên mở đầu bằng tiền tố cùng nhóm loại mà phần sau ra tên Latin ⇒ "lão Neil".
+        /// Danh sách "Tiền tố" hiệu lực của truyện (`LocalNameFilterPrefixStore.allPrefixes(bookId:)`, plan
+        /// 2026-11-27-phan-loai-name L7 / L10) — chỉ ghép nghĩa: mảnh tên mở đầu bằng tiền tố cùng nhóm loại mà phần sau ra
+        /// tên Latin ⇒ "lão Neil".
         /// Rỗng ⇒ không ghép tiền tố.
         public var prefixes: [Suffix]
         /// "Độ dài name" (L15): name ít hơn `minLength` chữ hoặc nhiều hơn `maxLength` chữ bị bỏ ở đầu ra (`length_off`,

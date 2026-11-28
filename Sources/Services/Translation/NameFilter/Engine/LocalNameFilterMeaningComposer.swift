@@ -22,12 +22,14 @@ final class LocalNameFilterMeaningComposer {
     private let suffixes: [LocalNameFilter.Suffix]
 
     /// `nil` ⇒ VietPhrase chưa nạp (không ghép được). `latinModel` khác `nil` ⇒ như bật "Ưu tiên tên Latin" có mô hình.
-    /// `prefixes` mặc định = danh sách "Tiền tố" hiện tại.
+    /// `suffixes` / `prefixes` = danh sách hiệu lực **của truyện** (`LocalNameFilterSuffixStore.allSuffixes(bookId:)` /
+    /// `LocalNameFilterPrefixStore.allPrefixes(bookId:)` — Chung + Riêng truyện); không có mặc định để chỗ gọi nào cũng
+    /// phải truyền đúng bản của truyện.
     init?(
         bookId: String,
         suffixes: [LocalNameFilter.Suffix],
         latinModel: LocalNameFilterLatinModel?,
-        prefixes: [LocalNameFilter.Suffix] = LocalNameFilterPrefixStore.shared.allPrefixes()
+        prefixes: [LocalNameFilter.Suffix]
     ) {
         guard let dictionaries = LocalNameFilterDictionaries.capture(bookId: bookId) else { return nil }
         let configuration = LocalNameFilter.Configuration(
@@ -41,7 +43,9 @@ final class LocalNameFilterMeaningComposer {
         builder = LocalNameFilterMeaningBuilder(
             setup: setup,
             dictionaries: dictionaries,
-            properNames: LocalNameFilterProperNames(dictionaries: dictionaries, latinModel: latinModel, prefixes: prefixes)
+            properNames: LocalNameFilterProperNames(
+                dictionaries: dictionaries, latinModel: latinModel, prefixes: prefixes, affixes: suffixes
+            )
         )
         self.suffixes = suffixes
     }
@@ -49,13 +53,15 @@ final class LocalNameFilterMeaningComposer {
     /// **Dấu** của những gì quyết định nghĩa máy ghép ngoài từ điển: danh sách hậu tố + danh sách tiền tố (chữ, nghĩa, loại,
     /// vị trí) + công tắc "Ưu tiên tên Latin". Gói tạm nhớ dấu lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`);
     /// trùng dấu hiện tại ⇒ không ghép lại — nếu không, mỗi lần trang đầu hiện ra hàng bộ luật địa danh / tổ chức mà danh
-    /// sách đã xoá đuôi đã dò có thể đổi nghĩa theo đường ghép ở đây dù người dùng không đổi gì. `prefixes` mặc định = danh
-    /// sách "Tiền tố" hiện tại. Có thêm số phiên bản luật ghép (`rulesVersion`): đổi luật ghép ⇒ tăng số ⇒ mọi gói tạm ghép
-    /// lại một lần (nghĩa người dùng đã sửa vẫn giữ).
+    /// sách đã xoá đuôi đã dò có thể đổi nghĩa theo đường ghép ở đây dù người dùng không đổi gì. Hai danh sách là bản hiệu
+    /// lực **của truyện** (Chung + Riêng, `allSuffixes(bookId:)` / `allPrefixes(bookId:)`) ⇒ sửa danh sách Riêng cũng đổi
+    /// dấu; không có mặc định — mọi chỗ tính dấu phải cùng một cách, lệch một chỗ là gói tạm ghép lại mỗi lần hoặc không
+    /// bao giờ. Có thêm số phiên bản luật ghép (`rulesVersion`): đổi luật ghép ⇒ tăng số ⇒ mọi gói tạm ghép lại một lần
+    /// (nghĩa người dùng đã sửa vẫn giữ).
     static func signature(
         suffixes: [LocalNameFilter.Suffix],
         prefersLatinNames: Bool,
-        prefixes: [LocalNameFilter.Suffix] = LocalNameFilterPrefixStore.shared.allPrefixes()
+        prefixes: [LocalNameFilter.Suffix]
     ) -> String {
         func line(_ item: LocalNameFilter.Suffix) -> String {
             "\(item.key)=\(item.meaning)|\(item.kind.rawValue)|\(item.position.rawValue)"
@@ -67,8 +73,9 @@ final class LocalNameFilterMeaningComposer {
     }
 
     /// Phiên bản luật ghép nghĩa trong dấu gói tạm. 2 = 2026-11-28: hậu tố dài nhất cho cả hàng bộ luật, phủ trọn chỉ cho
-    /// tên Latin.
-    static let rulesVersion = 2
+    /// tên Latin. 3 = 2026-11-28: tên kiểu Latin bỏ tiền tố / hậu tố rồi xét phần lõi (`latinAffixed`: 古赫密斯语 ⇒ "cổ
+    /// Hermes ngữ").
+    static let rulesVersion = 3
 
     /// Loại ghép lại được: tên người, địa danh, tổ chức (không phải họ tộc), thuật ngữ.
     static func canRecompose(_ kind: LocalNameFilter.Kind) -> Bool {

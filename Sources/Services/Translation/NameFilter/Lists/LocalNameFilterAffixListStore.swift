@@ -10,6 +10,9 @@ import Foundation
 ///   `removed`). Khoá vắng = đúng bản gốc, nên mục mới của bản app sau tới cả người đã sửa. Khoá chữ thường ⇒
 ///   `BackupSettingsArchiver` tự gói.
 /// - **Trộn**: bản gốc → áp `entries` → bỏ `removed`.
+/// - **Riêng truyện** (2026-11-28): mỗi danh sách có thêm lớp theo truyện `bookStore` (`LocalNameFilterBookAffixStore`).
+///   Mọi chỗ có ngữ cảnh truyện (bộ lọc, ghép nghĩa, dấu gói tạm) dùng danh sách hiệu lực `effective(bookId:)` = Riêng +
+///   Chung, **Riêng thắng cùng chữ**; thêm / sửa / xoá theo phạm vi + chuyển R ↔ C ở file `+Scope`.
 ///
 /// Danh sách nhỏ, đọc trên main ⇒ không cache; đọc `UserDefaults` mỗi lần nên bước khôi phục của Backup (ghi thẳng
 /// `UserDefaults`) có hiệu lực ngay. Không đi vào bộ dịch ⇒ ghi không cần dọn cache dịch hay báo rule đổi.
@@ -29,14 +32,18 @@ class LocalNameFilterAffixListStore {
     let noun: String
     /// Bản gốc.
     let base: Overrides.Base
+    /// Danh sách **riêng truyện** cùng loại (2026-11-28) — danh sách hiệu lực của một truyện = Riêng + Chung
+    /// (`effective(bookId:)`, file `+Scope`).
+    let bookStore: LocalNameFilterBookAffixStore
 
     private let corruptLogLock = NSLock()
     private var lastCorruptRaw: String?
 
-    init(defaultsKey: String, resourceName: String, noun: String) {
+    init(defaultsKey: String, resourceName: String, noun: String, bookStore: LocalNameFilterBookAffixStore) {
         self.defaultsKey = defaultsKey
         self.resourceName = resourceName
         self.noun = noun
+        self.bookStore = bookStore
         base = LocalNameFilterAffixListStore.loadBase(resourceName: resourceName, noun: noun)
     }
 

@@ -24,13 +24,21 @@ final class LocalNameFilterSuffixStore: LocalNameFilterAffixListStore {
         super.init(
             defaultsKey: LocalNameFilterSuffixStore.userDefaultsKey,
             resourceName: LocalNameFilterSuffixStore.bundledResourceName,
-            noun: "Hậu tố"
+            noun: "Hậu tố",
+            bookStore: .suffixes
         )
     }
 
-    /// Mọi mục của danh sách, đúng dạng bộ lọc dùng (`LocalNameFilter.Configuration.suffixes` — chỉ để ghép nghĩa).
+    /// Mọi mục của danh sách **Chung**, đúng dạng bộ lọc dùng. Chỗ có ngữ cảnh truyện dùng `allSuffixes(bookId:)`.
     func allSuffixes() -> [LocalNameFilter.Suffix] {
         entries().map(\.suffix)
+    }
+
+    /// Danh sách "Hậu tố" hiệu lực của một truyện = Riêng truyện + Chung, bản Riêng thắng cùng chữ
+    /// (`LocalNameFilter.Configuration.suffixes` — chỉ để ghép nghĩa; dấu gói tạm). `bookId` rỗng ⇒ chỉ Chung. Bộ dò
+    /// `detectionSuffixes` không đổi.
+    func allSuffixes(bookId: String) -> [LocalNameFilter.Suffix] {
+        effective(bookId: bookId)
     }
 
     /// Bộ đuôi **dò** cố định của bộ lọc = bản gốc trừ dòng `|off`, không theo lớp riêng (cách A). `LocalNameFilterSetup`

@@ -38,8 +38,9 @@ extension LocalNameFilterSession {
             self.reviewContext?.autoMeanings = updated
             // Ghép lại theo danh sách đuôi vừa đổi ⇒ gói ứng với danh sách hiện tại.
             self.reviewContext?.meaningSignature = LocalNameFilterMeaningComposer.signature(
-                suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
-                prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
+                suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId),
+                prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId),
+                prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
             )
         }
     }

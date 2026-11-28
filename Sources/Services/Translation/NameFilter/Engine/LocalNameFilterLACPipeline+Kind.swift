@@ -7,7 +7,9 @@ import Foundation
 ///    - Nhân danh (L11, hậu tố 2–6 chữ của bản gốc) ⇒ người (天元圣女 — LAC xếp Thuật ngữ);
 ///    - địa danh / tổ chức mà LAC bảo người + chữ cuối là đuôi yếu phía LAC (山 峰 河… + 卫 泽): L2 — nhãn thường nhiều hơn
 ///      nhãn thực thể, không mở đầu bằng họ, không có danh xưng ⇒ theo hậu tố (魔渊, 血河); L1 — ≥ 3 chữ không mở đầu bằng
-///      họ ⇒ theo hậu tố (玄剑峰, 执事堂); còn lại vẫn là người (刘云峰, 楚渊, 王精卫);
+///      họ ⇒ theo hậu tố (玄剑峰, 执事堂); L16 (2026-11-28) — phần trước hậu tố (hoặc nó bỏ một tiền tố của danh sách) có
+///      nghĩa từ điển là tên Latin thật (`LocalNameFilterProperNames.hasLatinCore`: 霍伊 = Khoy) ⇒ theo hậu tố (霍伊河);
+///      còn lại vẫn là người (刘云峰, 楚渊, 王精卫);
 ///    - còn lại ⇒ loại của hậu tố.
 /// 2. Không hậu tố ⇒ nhãn LAC nhiều nhất. LAC bảo người, không mở đầu bằng họ, không có danh xưng: L3 — chữ cuối là loài
 ///    vật / yêu ma, không mở đầu bằng 阿 / 小 ⇒ Thuật ngữ (蜃龙, 啸月银狼); L4 — nhãn thường ≥ 2 lần nhãn thực thể, không mở
@@ -34,6 +36,9 @@ extension LocalNameFilterLACPipeline {
             let startsWithSurname = dictionaries.surnameLength(of: word) > 0
             if other > entity, !startsWithSurname, !hasTitle(word) { return kind }
             if word.count >= 3, !startsWithSurname { return kind }
+            // L16: phần trước hậu tố (hoặc nó bỏ một tiền tố của danh sách) có nghĩa Latin trong từ điển (霍伊 = Khoy) ⇒ chữ
+            // đầu không phải họ ⇒ theo hậu tố (霍伊河, 苏尼亚海). Không theo công tắc "Ưu tiên tên Latin".
+            if properNames.hasLatinCore(word.dropLast(suffix.length)) { return kind }
             return .person
         }
         let kind = Self.kind(for: tag)

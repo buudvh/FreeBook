@@ -10,7 +10,7 @@ import Foundation
 ///    trừ luật (e) — có đuôi không yếu (không tính hậu tố Nhân danh), ≥ 3 chữ, LAC gắn thực thể nhiều hơn nhãn khác
 ///    (菩提丹, 青山县); hư từ; đầu 2 chữ là từ thường; họ + từ thường; thực thể mạnh hơn hẳn + phần thừa vô nghĩa
 ///    (`glued_fragment` — phần thừa là một hậu tố ≥ 2 chữ của danh sách người dùng, mọi loại, thì giữ).
-/// 4. Loại (`kind(of:…)`, file `+Kind`): L11 / L1–L4 của plan 2026-11-27-phan-loai-name. Nghĩa dựng sau, theo danh sách
+/// 4. Loại (`kind(of:…)`, file `+Kind`): L11 / L1–L4 / L16 của plan 2026-11-27-phan-loai-name. Nghĩa dựng sau, theo danh sách
 ///    người dùng (`LocalNameFilterMeaningBuilder`).
 ///
 /// Tên lý do bỏ trùng `lacpipe.py`. Đếm số lần trong truyện: từ toàn chữ Hán dải bộ luật ⇒ chỉ mục của bộ luật
@@ -45,6 +45,8 @@ struct LocalNameFilterLACPipeline {
     let counter: LocalNameFilterTextCounter
     /// Danh xưng của bộ luật lúc chụp (`Snapshot.titles`) — danh xưng 1 chữ của luật phân loại ("có danh xưng").
     let titles: Set<LocalNameFilterTermKey>
+    /// Phần tên riêng của lượt (tiền tố + tập chữ phiên âm + âm Hán-Việt) — lõi Latin của luật phân loại L16.
+    let properNames: LocalNameFilterProperNames
 
     /// `nil` ⇒ task bị huỷ giữa chừng.
     func run() -> Output? {

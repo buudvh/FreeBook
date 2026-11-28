@@ -100,7 +100,7 @@ public final class LocalNameFilterReviewSuffixContext {
         guard !candidates.isEmpty else { return [:] }
 
         let bookId = self.bookId
-        let suffixes = LocalNameFilterSuffixStore.shared.allSuffixes()
+        let suffixes = LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId)
         var latinModel: LocalNameFilterLatinModel?
         if LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId) {
             do {
@@ -114,7 +114,7 @@ public final class LocalNameFilterReviewSuffixContext {
             }
         }
         let model = latinModel
-        let prefixes = LocalNameFilterPrefixStore.shared.allPrefixes()
+        let prefixes = LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
         // Nghĩa máy ghép lần trước đi kèm: tên người giữ danh xưng 1 chữ đã dùng ("Lâm ca") như gói tạm tự cập nhật.
         let terms = candidates.map { (term: $0.term, kind: $0.kind, previous: $0.old) }
         let rebuilt = await Task.detached(priority: .userInitiated) { () -> [String: (meaning: String, isGuessed: Bool)] in

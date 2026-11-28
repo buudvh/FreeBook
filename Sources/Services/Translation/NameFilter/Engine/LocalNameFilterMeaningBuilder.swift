@@ -6,6 +6,9 @@ import Foundation
 ///
 /// 1. Cả từ có trong từ điển với nghĩa kiểu tên (Name 3 lớp rồi VP 3 lớp, `LocalNameFilterProperNames.nameLike`) ⇒ nghĩa
 ///    đó (克莱恩 ⇒ Klein; bật "Ưu tiên tên Latin": 班森 ⇒ Benson). Nghĩa đầu viết thường (hàng luật (e)) không lấy.
+/// 1b. Mọi loại trừ họ tộc (2026-11-28, plan "Tiền tố hậu tố riêng truyện" mục A1): bỏ tiền tố / hậu tố của danh sách (mọi
+///    loại), phần lõi là tên Latin thật ⇒ "tiền tố + Latin + hậu tố" theo vị trí (古赫密斯语 ⇒ "cổ Hermes ngữ" —
+///    `LocalNameFilterProperNames.latinAffixed`). Tên người vẫn báo danh xưng như đường khác.
 /// 2. Không có ⇒ bóc như cũ, phần tên riêng dựng bằng `properAll` (từ điển ⇒ tiền tố ⇒ mô hình đoán ⇒ Hán-Việt):
 ///    - người + danh xưng ⇒ phần tên + nghĩa đầu của danh xưng giữ nguyên chữ (罗塞尔大帝 ⇒ "Russel đại đế"). Danh xưng =
 ///      hậu tố **Nhân danh dài nhất** của danh sách người dùng trong phần sau họ (`LocalNameFilterSetup.personTitle`: 陈长老
@@ -57,6 +60,7 @@ struct LocalNameFilterMeaningBuilder {
             return Built(meaning: meaning, title: nil, isGuessed: false)
         case .place, .sect:
             if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
+            if let affixed = latinAffixed(word) { return affixed }
             guard extra > 0, extra < word.count else { return plain(word) }
             // Hậu tố dài hơn đuôi đã dò trong danh sách người dùng ⇒ ghép như hàng phía LAC (瑶池仙阁: 仙阁 thắng 阁).
             if let longest = setup.meaningSuffix(of: word), longest.length > extra {
@@ -76,6 +80,7 @@ struct LocalNameFilterMeaningBuilder {
         case .term:
             // Bộ luật không sinh ứng viên thuật ngữ.
             if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
+            if let affixed = latinAffixed(word) { return affixed }
             return plain(word)
         }
     }
@@ -88,8 +93,15 @@ struct LocalNameFilterMeaningBuilder {
             return person(word, surnameLength: dictionaries.surnameLength(of: word), titles: titles)
         }
         if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: nil, isGuessed: false) }
+        if let affixed = latinAffixed(word) { return affixed }
         guard let suffix = setup.meaningSuffix(of: word) else { return plain(word) }
         return suffixed(word, suffix)
+    }
+
+    /// Tên kiểu Latin có tiền tố / hậu tố (`LocalNameFilterProperNames.latinAffixed`) — name không phải người; `nil` = không
+    /// ra.
+    private func latinAffixed(_ word: Word) -> Built? {
+        properNames.latinAffixed(word).map { Built(meaning: $0.text, title: nil, isGuessed: $0.isGuessed) }
     }
 
     /// Name không phải người với hậu tố `suffix` của danh sách người dùng: phủ trọn cả từ (chỉ tên Latin) ⇒ nghĩa đó; không
@@ -104,10 +116,14 @@ struct LocalNameFilterMeaningBuilder {
 
     // MARK: - Chung
 
-    /// Tên người: cả từ trong từ điển ⇒ nghĩa đó (vẫn báo danh xưng); không thì phần tên + nghĩa danh xưng.
+    /// Tên người: cả từ trong từ điển ⇒ nghĩa đó (vẫn báo danh xưng); tên kiểu Latin có tiền tố / hậu tố ⇒ ghép theo vị trí
+    /// (vẫn báo danh xưng); không thì phần tên + nghĩa danh xưng.
     private func person(_ word: Word, surnameLength: Int, titles: Set<LocalNameFilterTermKey>) -> Built {
         let title = setup.personTitle(of: word, surnameLength: surnameLength, titles: titles)
         if let whole = properNames.nameLike(word) { return Built(meaning: whole, title: title?.key, isGuessed: false) }
+        if let affixed = properNames.latinAffixed(word) {
+            return Built(meaning: affixed.text, title: title?.key, isGuessed: affixed.isGuessed)
+        }
         if let title {
             let proper = properNames.properAll(word.dropLast(title.key.count), surnameLength: surnameLength, isPerson: true)
             return Built(meaning: proper.text + " " + title.meaning, title: title.key, isGuessed: proper.isGuessed)

@@ -164,11 +164,11 @@ struct LocalNameFilterSheet: View {
         let length = LocalNameFilterLengthRangeSlider.clamped(lower: minLengthSetting, upper: maxLengthSetting)
         let configuration = LocalNameFilter.Configuration(
             minCount: minCount,
-            suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
+            suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId),
             blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
             categories: selectedCategories,
             prefersLatinNames: prefersLatinNames,
-            prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(),
+            prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId),
             minLength: length.lowerBound,
             maxLength: length.upperBound >= LocalNameFilterLengthRangeSlider.bounds.upperBound ? nil : length.upperBound
         )

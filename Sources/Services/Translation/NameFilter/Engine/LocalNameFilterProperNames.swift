@@ -26,6 +26,8 @@ import Foundation
 ///   phần sau ra tên **Latin** (cả phần / phủ trọn bằng `coverEntry`, hoặc mô hình đoán khi bật Latin và **mọi** chữ là chữ
 ///   phiên âm) ⇒ "nghĩa tiền tố + tên" theo vị trí (老科勒 ⇒ "lão Kolle"); không ra Latin ⇒ đi tiếp như cũ (小鱼 ⇒ "Tiểu
 ///   Ngư", 老张 ⇒ "Lão Trương").
+/// - **Tên kiểu Latin có tiền tố / hậu tố** (`latinAffixed`, 2026-11-28) và lõi Latin của luật phân loại L16
+///   (`hasLatinCore`) — file `LocalNameFilterProperNames+Latin.swift`.
 ///
 /// Một đối tượng cho cả lượt lọc (`LocalNameFilterEngine` giữ) — nhớ kết quả qua mọi lần chụp. **Không khoá**: chỉ dùng
 /// trên task của lượt lọc, như `LocalNameFilterDictionaries`.
@@ -47,7 +49,7 @@ final class LocalNameFilterProperNames {
     /// Mục từ điển dài nhất thử khi phủ một mảnh (`MAX_PIECE` của Python).
     private static let maxPieceLength = 12
     /// Dấu ngăn tên: `·` (U+00B7), `.`, `•` (U+2022).
-    private static let separators: Set<UInt32> = [0x00B7, 0x2E, 0x2022]
+    static let separators: Set<UInt32> = [0x00B7, 0x2E, 0x2022]
     private static let alternativeSeparators: Set<Character> = ["/", "|", "¦"]
     /// Chữ riêng tiếng Việt (ă â đ ê ô ơ ư + chữ có dấu thanh) — đúng bộ `VIET` của Python / `export_translit.py`.
     private static let vietnameseScalars: Set<UInt32> = {
@@ -56,14 +58,19 @@ final class LocalNameFilterProperNames {
         return set
     }()
 
-    private let dictionaries: LocalNameFilterDictionaries
+    let dictionaries: LocalNameFilterDictionaries
     /// `nil` = tắt "Ưu tiên tên Latin" hoặc bật mà không có mô hình (tải lỗi) — khi đó như tắt.
     private let latinModel: LocalNameFilterLatinModel?
     /// Tập chữ phiên âm (code point) — luôn có, không theo công tắc.
     private let translitChars: Set<UInt32>
-    /// Danh sách "Tiền tố" theo khoá (`Configuration.prefixes`).
-    private let prefixes: [Word: LocalNameFilter.Suffix]
-    private let prefixMaxLength: Int
+    /// Danh sách "Tiền tố" theo khoá (`Configuration.prefixes`), mọi loại — `prefixed` tự lọc theo nhóm, `latinAffixed` /
+    /// `hasLatinCore` (file `+Latin`) dùng hết.
+    let prefixes: [Word: LocalNameFilter.Suffix]
+    let prefixMaxLength: Int
+    /// **Mọi** mục của danh sách "Hậu tố" (`Configuration.suffixes`, mọi loại kể cả Nhân danh, 1–6 chữ, mục đầu thắng) —
+    /// chỉ để tách hậu tố khỏi tên kiểu Latin (`latinAffixed`, `affixes` của `name_meaning.py`).
+    let affixes: [Word: LocalNameFilter.Suffix]
+    let affixMaxLength: Int
     /// Chuỗi rỗng = không có nghĩa kiểu tên.
     private var nameLikeMemo: [Word: String] = [:]
     /// Như `nameLikeMemo` cho `coverEntry`.
@@ -71,23 +78,35 @@ final class LocalNameFilterProperNames {
     private var properMemo: [ProperKey: Proper] = [:]
 
     /// `translitChars` mặc định là tập đóng trong app; truyền vào chỉ để thử. `prefixes` rỗng ⇒ không ghép tiền tố.
+    /// `affixes` = danh sách "Hậu tố" hiệu lực của lượt (`Configuration.suffixes` — Chung + Riêng truyện), không có mặc
+    /// định để chỗ gọi nào cũng phải chọn.
     init(
         dictionaries: LocalNameFilterDictionaries,
         latinModel: LocalNameFilterLatinModel?,
         prefixes: [LocalNameFilter.Suffix] = [],
+        affixes: [LocalNameFilter.Suffix],
         translitChars: Set<UInt32> = LocalNameFilterTranslitChars.set
     ) {
         self.dictionaries = dictionaries
         self.latinModel = latinModel
         self.translitChars = translitChars
+        let prefixTable = LocalNameFilterProperNames.table(prefixes)
+        self.prefixes = prefixTable
+        prefixMaxLength = prefixTable.keys.map(\.count).max() ?? 0
+        let affixTable = LocalNameFilterProperNames.table(affixes)
+        self.affixes = affixTable
+        affixMaxLength = affixTable.keys.map(\.count).max() ?? 0
+    }
+
+    /// Bảng tra theo khoá code point: khoá 1–6 chữ, mục đầu thắng (danh sách hiệu lực đặt bản Riêng truyện trước).
+    private static func table(_ items: [LocalNameFilter.Suffix]) -> [Word: LocalNameFilter.Suffix] {
         var table: [Word: LocalNameFilter.Suffix] = [:]
-        for prefix in prefixes {
-            let word = Word(prefix.key)
+        for item in items {
+            let word = Word(item.key)
             guard (1...LocalNameFilterSuffixListParser.maxKeyLength).contains(word.count), table[word] == nil else { continue }
-            table[word] = prefix
+            table[word] = item
         }
-        self.prefixes = table
-        prefixMaxLength = table.keys.map(\.count).max() ?? 0
+        return table
     }
 
     var prefersLatin: Bool { latinModel != nil }
@@ -226,7 +245,7 @@ final class LocalNameFilterProperNames {
 
     /// `latin_of`: tên Latin của phần sau tiền tố — cả phần / phủ trọn bằng `coverEntry` mà nghĩa là chữ Latin; không có
     /// trong từ điển ⇒ mô hình đoán khi bật Latin và **mọi** chữ là chữ phiên âm. Không ra Latin ⇒ `nil`.
-    private func latinName(of rest: Word) -> Proper? {
+    func latinName(of rest: Word) -> Proper? {
         if let found = coverEntry(rest) ?? cover(rest) {
             return Self.isLatinName(found) ? Proper(text: found, isGuessed: false) : nil
         }
