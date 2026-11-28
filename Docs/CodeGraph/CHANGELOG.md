@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1131] - 2026-11-28
+
+### feat: giọng vtts Ngọc Huyền đổi sang bản joint 80k và Google Dịch sang mốc joint 60k của lượt train vtts-k6
+
+Hai giọng vtts tự train chạy tiếp từ joint 20k (lượt Kaggle `vtts-k4`) lên joint 80k ở lượt `vtts-k6` (28/11, công thức chưng cất upstream v0.9.1 — cách upstream chữa lớp ồn "buzzy" của `nu-10` ở 1.3.1052; hướng chữa rè anh Bửu duyệt 24/11). Chọn mốc theo luật anh duyệt: **UTMOS tiếng Việt cao nhất** (notebook chấm từng mốc 10k bằng runtime C `vtts_say --lang auto`, 12 câu tiếng Việt kiểu truyện + 4 câu trộn / Anh; điểm = UTMOS tiếng Việt / câu khác / whistle):
+
+- **Ngọc Huyền** (`ngoc-huyen`) ⇒ `Vendor/vtts/assets/vtts/vtts-ngochuyen-m-k6.q8.vtts` = `distill_nh/snapshots/M-vocos-p-bi-joint_0080000.q8.vtts` (trùng byte file cuối của chuỗi): 20k 2,284 / 2,74 / 1,09 → **80k 2,619 / 2,946 / 0,50**. SHA256 `b98851c847965987c985a5c1dbb5e35e13dcee4fe62a8556fbb3e4f95940c014`.
+- **Google Dịch** (`google-dich`) ⇒ `vtts-googledich-m-k6.q8.vtts` = `distill_gg/snapshots/M-vocos-p-bi-joint_0060000.q8.vtts` (mốc 60k, **không** phải file cuối 80k): 20k 2,70 / 2,749 / 3,97 → **60k 2,907 / 2,94 / 4,12**; bản 80k 2,665 / 2,716 / 0,75 — ít rít hơn hẳn nhưng UTMOS tiếng Việt thấp hơn cả bản cũ. SHA256 `50843a9eab7b3825e15c7a4edc95d542d97ac44c379db67077b334474743d4ac`.
+- Thầy VITS: Ngọc Huyền 3,157, Google Dịch 3,554. Không hứa hết rè: UTMOS không trùng hẳn với "rè" tai nghe, rè của Google Dịch có sẵn trong tiếng Google Dịch gốc.
+- Hai file mới 2 580 320 byte như bản k4; header (33 dim, 122 tensor, `token_set` vi-en, cả bảng 10 968 byte đầu) trùng từng byte với bản k4. `git rm` hai file `-k4`; `assets/vtts/` vẫn đúng 5 file.
+- `VttsVoice.ngocHuyen` / `.googleDich`: đổi `fileName`, **giữ id** (lựa chọn đã lưu còn nguyên), giữ `defaultLoudnessGainDb` 7,5 / 8 — đo trên bản k4, **chưa đo lại** trên bản k6 (máy Windows không có trình biên dịch C để chạy `vtts_say`).
+- `LOCAL_SHA256SUMS`, `VOICES` của `Scripts/ci/check_vtts_assets.sh`, `Vendor/vtts/README.md` (nguồn gốc + bảng điểm từng mốc), `THIRD_PARTY_NOTICES.md` (lượt train; giấy phép giữ CC BY-NC 4.0 — cùng thầy, cùng dữ liệu), `.claude/rules/tts.md`, `ci-release.md`. Bước Package IPA của `build-ipa.yml` chỉ kiểm `lex_en.bin` + hai giọng release ⇒ không đổi.
+- Kiểm tại chỗ: phần SHA256 + đếm file của `check_vtts_assets.sh` qua; phần dựng `vtts_say`, đọc thử từng giọng và shim ASan/UBSan **chưa chạy** (không có clang) — CI chạy. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch, chưa nghe thử trên máy.
+
 ## [1.3.1130] - 2026-11-28
 
 ### feat: lịch sử lọc name local ghi cả lần không ra name, lỗi, huỷ và lần bị ngắt khi app thoát lúc đang lọc
@@ -482,14 +496,3 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 - Comment: khoá đuôi 1–6 chữ (`LocalNameFilter.Suffix.key`), lúc tải mô hình Latin. Tài liệu `.claude/rules/translation.md` / `storage.md` / `books-sources.md` cập nhật cho cả đợt.
 - Ghi nhận, chưa sửa (nhẹ): huỷ lúc đang tải mô hình Latin lần đầu không cắt ngay (cửa nạp là `Task.detached`); dòng "Ví dụ" khi sửa đuôi có sẵn qua chip ✓ dùng mẫu chung.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1101] - 2026-11-27
-
-### feat: thêm đuôi ngay từ màn sửa từ của màn duyệt lọc name local, đuôi dài 1 đến 6 chữ, ghép lại nghĩa ngay
-
-- Đuôi dài 1–6 chữ (anh Bửu: "chọn đuôi thoải mái hơn"): luật khoá `LocalNameFilterSuffixListParser` nới từ 1–2 lên 1–6 chữ Hán cho danh sách người dùng (cả màn danh sách đuôi). Bộ dò cố định (file gốc, cách A) vẫn chỉ dùng đuôi 1–2 chữ. Ghép nghĩa lấy đuôi **dài nhất** khớp cuối name, phần tên riêng còn ≥ 1 chữ (安保公司 thắng 公司) — `LocalNameFilterSetup.meaningSuffix(of:)`, Python `suffix_of`. 10 truyện với danh sách mặc định ra y như trước (tắt và bật Latin).
-- Màn Sửa từ mở từ màn duyệt (chỉ luồng Lọc name local, chỉ name không phải tên người) có hàng phụ **"Đuôi"** dưới aa…AA, nút "?" (`LocalNameFilterSuffixQuickRow`, plan 2026-11-27-nghia-ten-tay-huyen mục 7, mockup v4): cuộn ngang, đầu hàng là chip chọn nhanh = đoạn cuối 1, 2, 3 chữ của name (chừa ≥ 1 chữ trước, bỏ đoạn có chữ không phải Hán) `+ 街` `+ 兰街` `+ 特兰街`; đoạn đã là đuôi ⇒ chip "✓ 街 · phố · trước" chạm để sửa; cuối hàng nút "+ Thêm đuôi".
-- Chip "+" / "+ Thêm đuôi" ⇒ `LocalNameFilterSuffixEditorSheet` chế độ thêm từ name (`Source`): mở với đúng đoạn đó hoặc **nguyên cụm** name, thu / nới bằng ‹ › của hàng chữ gốc, khoá lưu = phần đang chọn (luôn thêm mới); ô nghĩa = phiên âm viết thường của phần đang chọn, đã gõ thì giữ; Loại = loại của name, "Sau tên"; dòng "Ví dụ" dùng chính name; "Thêm" mờ + dòng nhắc khi chọn cả cụm ("Chừa ít nhất 1 chữ trước đuôi."), phần chọn không nằm cuối name, hoặc dài quá 6 chữ.
-- Lưu đuôi (thêm hoặc sửa) ⇒ ghi qua `LocalNameFilterSuffixStore` như cũ ⇒ ghép lại nghĩa ngay các name trong màn duyệt đang mở: không phải người / họ tộc, kết thúc bằng đuôi đó, nghĩa vẫn do máy ghép (`autoMeanings`) — bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc Latin (`LocalNameFilterReviewSuffixContext`); nghĩa tự sửa giữ nguyên; ô nghĩa của màn Sửa từ theo nếu chưa gõ khác; gói tạm mang nghĩa máy ghép mới; toast "Đã thêm đuôi 街 · ghép lại N name".
-- Màn Sửa từ dùng chung (`DictEntryEditSheet`) thêm móc mặc định không đổi hành vi chỗ khác: `initialSelection`, `accessoryRows` (chế độ từ điển), `followsOriginalValue`; `DictEntryEditListMode.addsFromSource` + `suggestedMeaning`. `LocalNameFilterSuffixStore.suggestedMeaning(for:)` = phiên âm viết thường.
-- Chưa biên dịch (máy Windows), chưa thử trên máy.

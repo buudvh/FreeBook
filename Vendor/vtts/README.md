@@ -11,7 +11,7 @@ Bửu, 2026-11-20: phòng repo upstream bị xoá).
 | `VTTS_COMMIT.txt` | Commit upstream đang ghim (runtime, công cụ, VLEX cùng một commit) |
 | `Package.swift`, `Sources/CVTTS/runtime/` | Gói SPM `CVTTS`: runtime chép nguyên văn, 27 ngôn ngữ phụ tắt (`VTTS_ENABLE_<L>=0`) |
 | `Sources/CVTTS/bridge/` | Shim C của FreeBook (`vtts_bridge.h` — header duy nhất Swift thấy) |
-| `assets/vtts/` | Đóng vào app (`FreeBook.app/vtts/`): 2 giọng M của release + `vtts-ngochuyen-m-k4.q8.vtts` + `vtts-googledich-m-k4.q8.vtts` + `lex_en.bin` — **chỉ** 5 file này (CI kiểm) |
+| `assets/vtts/` | Đóng vào app (`FreeBook.app/vtts/`): 2 giọng M của release + `vtts-ngochuyen-m-k6.q8.vtts` + `vtts-googledich-m-k6.q8.vtts` + `lex_en.bin` — **chỉ** 5 file này (CI kiểm) |
 | `assets/extra/` | Bản S của 2 giọng release (dự trữ, không vào app) |
 | `assets/cmudict/cmudict.dict` | CMUdict nguồn để dựng lại `lex_en.bin` |
 | `assets/SHA256SUMS` | 4 dòng vi-en (nguyên văn) của `SHA256SUMS` release model `v0.11.0`; `LOCAL_SHA256SUMS`: `lex_en.bin` + `cmudict.dict` + 2 giọng tự train |
@@ -56,14 +56,36 @@ giai đoạn joint 80k bước (v0.9.1 / v0.10.2), `nam-1` trùng byte v0.4.0.
 
 ## Giọng tự train (Ngọc Huyền, Google Dịch)
 
-`assets/vtts/vtts-ngochuyen-m-k4.q8.vtts` = `M-vocos-p-bi.q8.vtts` của lượt chưng cất `vtts-k4` (Kaggle, 2026-11-22):
-thầy VITS warm-start từ Piper `vi_VN/vais1000/medium`, train trên dataset `pnnbao-ump/ngochuyen_voice` (~20 giờ) + câu
-Anh / câu trộn nhân bản bằng VoxCPM2, rồi chưng cất sang bản M bằng trainer vtts cùng commit `VTTS_COMMIT.txt` (runtime
-đọc được). SHA256 ở `LOCAL_SHA256SUMS`; CI đọc thử như hai giọng release. Thay bằng lượt train mới: thay file (giữ tên
-hoặc sửa cả `VttsVoice.ngocHuyen` + `VOICES`), cập nhật dòng `LOCAL_SHA256SUMS`.
+`assets/vtts/vtts-ngochuyen-m-k6.q8.vtts` (1.3.1131, thay `vtts-ngochuyen-m-k4.q8.vtts` của 1.3.1044) =
+`distill_nh/snapshots/M-vocos-p-bi-joint_0080000.q8.vtts` của lượt Kaggle `vtts-k6` (2026-11-28; trùng byte
+`distill_nh/M-vocos-p-bi.q8.vtts`): thầy VITS warm-start từ Piper `vi_VN/vais1000/medium`, train trên dataset
+`pnnbao-ump/ngochuyen_voice` (~20 giờ) + câu Anh / câu trộn nhân bản bằng VoxCPM2, rồi chưng cất sang bản M bằng trainer
+vtts cùng commit `VTTS_COMMIT.txt` (runtime đọc được). Lượt `vtts-k4` (2026-11-22) dừng ở giai đoạn joint 20k bước;
+`vtts-k6` chạy tiếp joint 20k → **80k** theo công thức chưng cất upstream v0.9.1 (cách upstream chữa lớp ồn "buzzy" của
+`nu-10`, 1.3.1052).
 
-`assets/vtts/vtts-googledich-m-k4.q8.vtts` (1.3.1046) = `M-vocos-p-bi.q8.vtts` của chuỗi `gg` cùng lượt `vtts-k4`: tiếng
-Google Dịch (notebook `vtts-gg-data`, ~42 giờ, lọc ASR còn ~35 giờ) cho thầy VITS warm-start từ thầy Ngọc Huyền, rồi
-chưng cất như trên. Tiếng thầy lấy qua endpoint **không chính thức** của Google Dịch — rủi ro bị yêu cầu gỡ, anh Bửu đã
-nghe báo và vẫn chọn đóng vào app; bị yêu cầu gỡ thì xoá file + `VttsVoice.googleDich` + dòng `VOICES` /
-`LOCAL_SHA256SUMS`, sửa số file mong đợi của script.
+`assets/vtts/vtts-googledich-m-k6.q8.vtts` (1.3.1131, thay `vtts-googledich-m-k4.q8.vtts` của 1.3.1046) =
+`distill_gg/snapshots/M-vocos-p-bi-joint_0060000.q8.vtts` của chuỗi `gg` cùng lượt `vtts-k6` — mốc joint **60k**, không
+phải file cuối `distill_gg/M-vocos-p-bi.q8.vtts` (80k). Tiếng Google Dịch (notebook `vtts-gg-data`, ~42 giờ, lọc ASR còn
+~35 giờ) cho thầy VITS warm-start từ thầy Ngọc Huyền, rồi chưng cất như trên. Tiếng thầy lấy qua endpoint **không chính
+thức** của Google Dịch — rủi ro bị yêu cầu gỡ, anh Bửu đã nghe báo và vẫn chọn đóng vào app; bị yêu cầu gỡ thì xoá file +
+`VttsVoice.googleDich` + dòng `VOICES` / `LOCAL_SHA256SUMS`, sửa số file mong đợi của script.
+
+**Chọn mốc**: notebook `vtts-k6` chấm từng mốc 10k bằng runtime C (`vtts_say --lang auto`, 12 câu tiếng Việt kiểu truyện
++ 4 câu trộn / Anh), luật anh Bửu duyệt = lấy mốc **UTMOS tiếng Việt cao nhất**:
+
+| Giọng | Bản | UTMOS tiếng Việt | UTMOS câu trộn / Anh | whistle (rít, thấp = ít) |
+|---|---|---|---|---|
+| Ngọc Huyền | k4 joint 20k (bản cũ) | 2,284 | 2,74 | 1,09 |
+| Ngọc Huyền | **k6 joint 80k** (đóng vào app) | **2,619** | 2,946 | 0,50 |
+| Google Dịch | k4 joint 20k (bản cũ) | 2,70 | 2,749 | 3,97 |
+| Google Dịch | **k6 joint 60k** (đóng vào app) | **2,907** | 2,94 | 4,12 |
+| Google Dịch | k6 joint 80k | 2,665 | 2,716 | 0,75 |
+
+Thầy VITS: Ngọc Huyền 3,157, Google Dịch 3,554. Google Dịch 80k ít rít hơn hẳn nhưng UTMOS tiếng Việt thấp hơn cả bản
+cũ ⇒ theo luật lấy 60k (rít nhỉnh hơn bản cũ chút). UTMOS không trùng hẳn với "rè" tai nghe — không hứa hết rè; rè của
+Google Dịch có sẵn trong tiếng Google Dịch gốc.
+
+Cả hai: SHA256 ở `LOCAL_SHA256SUMS`; header (33 dim, 122 tensor, `token_set` vi-en) trùng từng byte với bản k4; CI đọc
+thử như hai giọng release. Thay bằng lượt train mới: thay file (giữ tên hoặc sửa cả `VttsVoice` + `VOICES`), cập nhật
+dòng `LOCAL_SHA256SUMS`.

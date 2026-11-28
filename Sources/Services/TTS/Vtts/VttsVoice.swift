@@ -45,20 +45,24 @@ struct VttsVoice: Hashable, Identifiable, Sendable {
     )
     /// Giọng FreeBook tự train (1.3.1044, anh Bửu: "Sao ko tích hợp trực tiếp vào app, giọng hợp lệ mà"): bản M chưng cất
     /// từ thầy VITS train trên dataset `pnnbao-ump/ngochuyen_voice` (**CC BY-NC 4.0** ⇒ ghi nguồn ở dòng phụ, app không thu
-    /// phí) + câu Anh / câu trộn nhân bản bằng VoxCPM2 (Apache-2.0). Mức tăng đo trên 6 câu mẫu của lượt train (−22,0 dBFS
-    /// sau bước chỉnh tiếng), chưa đo trên đoạn truyện dài của CI như hai giọng trên.
+    /// phí) + câu Anh / câu trộn nhân bản bằng VoxCPM2 (Apache-2.0). Từ 1.3.1131 là bản chưng cất joint **80k** bước của
+    /// lượt Kaggle `vtts-k6` (thay bản joint 20k của `vtts-k4`; UTMOS tiếng Việt 2,28 → 2,62). Mức tăng đo trên 6 câu mẫu
+    /// của bản k4 (−22,0 dBFS sau bước chỉnh tiếng), **chưa đo lại** trên bản k6, chưa đo trên đoạn truyện dài của CI như
+    /// hai giọng trên.
     static let ngocHuyen = VttsVoice(
         id: "ngoc-huyen", displayName: "Nữ · Ngọc Huyền",
-        source: .bundled(fileName: "vtts-ngochuyen-m-k4.q8.vtts"), defaultLoudnessGainDb: 7.5,
+        source: .bundled(fileName: "vtts-ngochuyen-m-k6.q8.vtts"), defaultLoudnessGainDb: 7.5,
         credit: "pnnbao-ump · CC BY-NC 4.0"
     )
     /// Giọng FreeBook tự train (1.3.1046, anh Bửu: "thêm giọng google và ipa nữa" — đã nghe báo rủi ro: tiếng thầy lấy qua
     /// endpoint không chính thức của Google Dịch): bản M chưng cất từ thầy VITS train trên ~35 giờ tiếng Google Dịch đọc câu
     /// Việt / Anh / trộn. Thầy warm-start từ thầy Ngọc Huyền ⇒ coi là dẫn xuất của dữ liệu CC BY-NC 4.0, ghi nguồn như giọng
-    /// trên. Mức tăng đo trên 6 câu mẫu của lượt train (−22,3 dBFS sau bước chỉnh tiếng).
+    /// trên. Từ 1.3.1131 là mốc joint **60k** bước của lượt Kaggle `vtts-k6` (mốc UTMOS tiếng Việt cao nhất: 2,70 của bản
+    /// joint 20k `vtts-k4` → 2,91; bản 80k 2,67). Mức tăng đo trên 6 câu mẫu của bản k4 (−22,3 dBFS sau bước chỉnh
+    /// tiếng), **chưa đo lại** trên bản k6.
     static let googleDich = VttsVoice(
         id: "google-dich", displayName: "Nữ · Google Dịch",
-        source: .bundled(fileName: "vtts-googledich-m-k4.q8.vtts"), defaultLoudnessGainDb: 8,
+        source: .bundled(fileName: "vtts-googledich-m-k6.q8.vtts"), defaultLoudnessGainDb: 8,
         credit: "pnnbao-ump · CC BY-NC 4.0"
     )
 

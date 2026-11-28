@@ -35,8 +35,8 @@ SMOKE_DIR="${SMOKE_DIR:-$REPO_ROOT/build/vtts-smoke}"
 VOICES=(
   "nu-10 vtts-vien-nu10-m-v0.11.q8.vtts"
   "nam-1 vtts-vien-nam1-m-v0.11.q8.vtts"
-  "ngoc-huyen vtts-ngochuyen-m-k4.q8.vtts"
-  "google-dich vtts-googledich-m-k4.q8.vtts"
+  "ngoc-huyen vtts-ngochuyen-m-k6.q8.vtts"
+  "google-dich vtts-googledich-m-k6.q8.vtts"
 )
 
 # Phải khớp `disabledLanguages` trong Vendor/vtts/Package.swift (= OPT_LANGS của tools/runtime/Makefile).
