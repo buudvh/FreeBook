@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1129",
+          "buildVersion": "1362",
+          "date": "2026-11-28T08:05:50Z",
+          "localizedDescription": "- feat: danh sách Hậu tố, Tiền tố và Không phải name của lọc name local xuất được ra file để gửi",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1362/TangCongCac-1.3.1129-1362.ipa",
+          "size": 53472370,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1128",
           "buildVersion": "1361",
           "date": "2026-11-28T06:29:11Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1357/TangCongCac-1.3.1111-1357.ipa",
           "size": 53278315,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1110",
-          "buildVersion": "1356",
-          "date": "2026-11-28T01:07:55Z",
-          "localizedDescription": "- feat: lọc name local sửa phân loại, hậu tố Nhân danh thay Pronouns, tiền tố cho tên Latin, lọc độ dài name\n- feat: lọc name local có danh sách họ riêng, thêm họ 洛 và 玉, chép một lần họ đã sửa ở danh sách họ của rule dịch nhanh\n- feat: màn duyệt name giữ đầu thẻ, ô tìm và chip loại dính trên cùng khi cuộn\n- feat: bấm Lưu ở màn duyệt name hiện popup ba cách lưu như nhập file, cả luồng AI và lọc name local\n- feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách\n- feat: màn Sửa từ của màn duyệt lọc name local có hàng Tiền tố và Hậu tố cho mọi name, hiện đủ mục nằm trong cụm\n- feat: sheet lọc name local có danh sách Tiền tố và Họ, thanh kéo hai đầu chọn độ dài name\n- docs: ghi chú lọc name local theo hậu tố Nhân danh, tiền tố, họ riêng, luật phân loại mới và độ dài name",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1356/TangCongCac-1.3.1110-1356.ipa",
-          "size": 53278878,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1128",
-      "versionDate": "2026-11-28T06:29:11Z",
-      "versionDescription": "- feat: lọc name local tin Name và VP riêng cho lõi tên Latin, thêm công tắc Nới đoán tên Latin theo truyện và theo name\n- feat: lọc name local có danh sách Không phải name riêng truyện, thùng rác ba lựa chọn và chip phạm vi ở màn danh sách\n- feat: màn Sửa từ của lọc name local ghim được R hoặc C làm mặc định khi thêm tiền tố hậu tố, chip có sẵn mang badge R hoặc C\n- fix: sửa tiền tố hậu tố có sẵn mà nhấn giữ R hoặc C thì chỉ ghim mặc định, không đổi phạm vi của mục đang sửa\n- fix: hàng Nới đoán tên Latin ở màn Sửa từ có nhãn vàng đoán khi nghĩa hiện tại của name do máy đoán\n- feat: lọc name local ghi lịch sử lọc theo truyện, mỗi lượt ra màn duyệt một mục, lưu xong đánh dấu đã lưu\n- feat: sheet lọc name local thay gói tạm chưa lưu bằng hàng Lịch sử lọc và trang lịch sử riêng có xoá, dọn dẹp, chọn nhiều\n- docs: ghi chú lọc name local cho lõi Latin tin Name, Nới đoán tên Latin, Không phải name riêng truyện, ghim R C và lịch sử lọc",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1361/TangCongCac-1.3.1128-1361.ipa",
-      "size": 53466566,
+      "version": "1.3.1129",
+      "versionDate": "2026-11-28T08:05:50Z",
+      "versionDescription": "- feat: danh sách Hậu tố, Tiền tố và Không phải name của lọc name local xuất được ra file để gửi",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1362/TangCongCac-1.3.1129-1362.ipa",
+      "size": 53472370,
       "appPermissions": {}
     }
   ],
