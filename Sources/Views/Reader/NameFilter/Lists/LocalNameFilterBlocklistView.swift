@@ -55,6 +55,7 @@ struct LocalNameFilterBlocklistView: View {
     @State private var editorTarget: EditorTarget?
     @State private var showingMenu = false
     @State private var confirmingClear = false
+    @State private var exportedFile: LocalNameFilterListExport.File?
 
     init(bookId: String? = nil) {
         self.bookId = bookId.flatMap { $0.isEmpty ? nil : $0 }
@@ -114,6 +115,11 @@ struct LocalNameFilterBlocklistView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingMenu, title: Self.title) {
+            // Xuất đúng danh sách của chip phạm vi đang chọn, mỗi dòng một cụm (`LocalNameFilterListExport`).
+            SideDrawerActionRow("Xuất file", systemImage: "square.and.arrow.up") {
+                exportList()
+            }
+            .disabled(items.isEmpty)
             SideDrawerActionRow(
                 activeScope == .book ? "Xoá hết cụm riêng" : "Xoá hết", systemImage: "trash", role: .destructive
             ) {
@@ -129,6 +135,9 @@ struct LocalNameFilterBlocklistView: View {
             }
             .appGlassSheet()
         }
+        .sheet(item: $exportedFile) { file in
+            ShareSheet(activityItems: [file.url])
+        }
         .confirmationDialog(clearTitle, isPresented: $confirmingClear, titleVisibility: .visible) {
             Button("Xoá hết \(items.count) cụm", role: .destructive) { removeAll() }
             Button("Hủy", role: .cancel) {}
@@ -136,6 +145,18 @@ struct LocalNameFilterBlocklistView: View {
             Text("Lần lọc sau các cụm này có thể hiện lại.")
         }
         .onAppear { reload() }
+    }
+
+    /// Ngăn kéo › "Xuất file": các cụm của chip phạm vi đang chọn, mỗi dòng một cụm.
+    private func exportList() {
+        let isBook = activeScope == .book
+        let content = LocalNameFilterListExport.termContent(items.map(\.term), listName: Self.title, isBookScope: isBook)
+        do {
+            exportedFile = try LocalNameFilterListExport.write(content, fileStem: "KhongPhaiName", isBookScope: isBook)
+        } catch {
+            AppLogger.shared.log("❌ [LọcName] Không xuất được danh sách Không phải name: \(error.localizedDescription)")
+            ToastManager.shared.show(message: "Không xuất được file: \(error.localizedDescription)", type: .error)
+        }
     }
 
     private var clearTitle: String {

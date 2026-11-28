@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1129] - 2026-11-28
+
+### feat: danh sách Hậu tố, Tiền tố và Không phải name của lọc name local xuất được ra file để gửi
+
+Anh Bửu (2026-11-28): "thêm chức năng xuất danh sách tiền tố hậu tố và lọc rác tôi gửi cho điều tra", "tôi đã thêm vào danh
+sách không phải name nhiều lắm. Mà ko xuất được để gửi bạn".
+- Ngăn kéo `…` của ba màn (`LocalNameFilterSuffixListView` cho Hậu tố / Tiền tố, `LocalNameFilterBlocklistView`) có
+  "Xuất file" (mờ khi danh sách rỗng): xuất **đúng danh sách của chip phạm vi đang chọn** (Chung hoặc Riêng truyện), không
+  theo ô tìm / chip loại; mở bảng chia sẻ hệ thống (`ShareSheet`).
+- Định dạng như file gốc để đọc lại được: hậu tố / tiền tố `chữ Hán=nghĩa|loại|vị trí` (như `NameFilterSuffixes.txt`),
+  Không phải name mỗi dòng một cụm; dòng đầu `# <danh sách> · <phạm vi> · N mục · xuất <giờ>`. Tên file
+  `HauTo|TienTo|KhongPhaiName_<Chung|RiengTruyen>_<yyyyMMddHHmmss>.txt`. Helper mới `LocalNameFilterListExport`.
+- Ghi file lỗi ⇒ toast lỗi + log ❌. `translation.md` ghi thêm.
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1128] - 2026-11-28
 
 ### docs: ghi chú lọc name local cho lõi Latin tin Name, Nới đoán tên Latin, Không phải name riêng truyện, ghim R C và lịch sử lọc
@@ -477,14 +492,4 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 - Tập chữ phiên âm đóng trong app: `Sources/Resources/Translation/NameFilterTranslitChars.txt` (268 chữ, đúng `translitChars` của `translit_latin.json` @ HF `0df8c84a`), đọc một lần qua `LocalNameFilterTranslitChars`, dùng ở **mọi** chế độ kể cả tắt Latin (cách C) — giữ được Backlund Đông Khu, Russel đại đế, Derrick Berg khi tắt Latin. `translitChars` trong file mô hình chỉ để đối chiếu: lệch ⇒ log ❌ (`LocalNameFilterLatinModelGate`).
 - Python tham chiếu `name_meaning.py` sửa trước (`cover_entry`, `has_translit_char`, `load_translit_chars`); 10 truyện giữ y hàng. Với VP của anh, so với trước, đổi 8 hàng (tắt và bật Latin như nhau): 炎珠草 (sửa đúng), 图铎家族 / 图铎王朝 Tudor ⇒ Đồ Đạc, 水仙花街 "Thủy Tiên Hoa nhai", 沐氏家族 "Mộc Thị gia tộc", 天元圣女 "Thiên Nguyên Thánh Nữ", 天使神神位 "Thiên Sử Thần Thần Vị", 剑道·君亭 "Kiếm Đạo Quân Đình".
 - Comment `LocalNameFilter.Suffix`: danh sách đuôi chỉ để ghép nghĩa (không còn "đuôi đang bật").
-- Chưa biên dịch (máy Windows), chưa thử trên máy.
-
-## [1.3.1099] - 2026-11-27
-
-### feat: gói name tạm tự cập nhật theo danh sách đuôi và danh sách không phải name
-
-- Gói tạm của Lọc name local nhớ thêm `autoMeanings` (chữ Hán ⇒ nghĩa máy ghép + loại, lúc lọc hoặc lần cập nhật trước; plan 2026-11-27-nghia-ten-tay-huyen mục 6). Trường tuỳ chọn: gói cũ chưa có ⇒ không ghép lại nghĩa. Màn duyệt mang theo qua `ReviewContext` (lọc xong, mở lại gói, ghi gói).
-- Mỗi lần trang đầu "Lọc name local" hiện ra (mở sheet, quay lại từ màn danh sách, bấm ‹ ở màn duyệt), `LocalNameFilterDraftRefresher` cập nhật các gói của truyện đang mở ngoài main: bỏ name nằm trong "Không phải name" (xoá cụm khỏi danh sách thì name đã bỏ không quay lại; gói hết name ⇒ xoá gói); địa danh / tổ chức / thuật ngữ mà nghĩa đang có bằng nghĩa máy ghép ⇒ ghép lại bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc "Ưu tiên tên Latin" của truyện (cập nhật nghĩa, `autoMeanings`, cờ đoán); nghĩa đã tự sửa giữ nguyên; người / họ tộc không ghép lại. Bật Latin mà thiếu mô hình ⇒ lần đó không ghép lại.
-- `LocalNameFilterMeaningComposer`: ghép nghĩa một name lẻ (chụp từ điển của truyện) bằng `LocalNameFilterMeaningBuilder` đường hàng LAC. `LocalNameFilterDraftStore.update`: đọc – sửa – ghi trong một lần giữ khoá, không đổi thì không ghi, `savedAt` giữ nguyên.
-- Nút "?" của mục "Gói tạm chưa lưu" thêm đoạn giải thích việc tự cập nhật. Log `🔎 [LọcName] Cập nhật gói tạm: bỏ N name…, ghép lại M nghĩa…`.
 - Chưa biên dịch (máy Windows), chưa thử trên máy.

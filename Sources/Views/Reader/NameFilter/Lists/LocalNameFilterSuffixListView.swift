@@ -42,6 +42,7 @@ struct LocalNameFilterSuffixListView: View {
     @State private var editorTarget: EditorTarget? = nil
     @State private var showingMenu = false
     @State private var confirmingReset = false
+    @State private var exportedFile: LocalNameFilterListExport.File? = nil
 
     init(flavor: Flavor = .suffix, bookId: String? = nil) {
         self.flavor = flavor
@@ -146,11 +147,19 @@ struct LocalNameFilterSuffixListView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingMenu, title: flavor.noun) {
+            // Xuất đúng danh sách của chip phạm vi đang chọn (`LocalNameFilterListExport`).
+            SideDrawerActionRow("Xuất file", systemImage: "square.and.arrow.up") {
+                exportList()
+            }
+            .disabled(scopeEntries.isEmpty)
             // Chỉ danh sách Chung có bản gốc để khôi phục.
             SideDrawerActionRow("Khôi phục mặc định", systemImage: "arrow.counterclockwise", role: .destructive) {
                 confirmingReset = true
             }
             .disabled(!isCustomized || activeScope == .book)
+        }
+        .sheet(item: $exportedFile) { file in
+            ShareSheet(activityItems: [file.url])
         }
         .sheet(item: $editorTarget) { target in
             Group {
@@ -236,6 +245,20 @@ struct LocalNameFilterSuffixListView: View {
         guard let entry, entry.bundledValue != nil else { return }
         report(flavor.store.restoreBundledValue(key: entry.key),
                success: "Đã đưa \(flavor.lowercasedNoun) \(entry.key) về bản gốc")
+    }
+
+    /// Ngăn kéo › "Xuất file": danh sách của chip phạm vi đang chọn, định dạng file gốc (`chữ Hán=nghĩa|loại|vị trí`).
+    private func exportList() {
+        let isBook = activeScope == .book
+        let content = LocalNameFilterListExport.affixContent(scopeEntries, listName: flavor.noun, isBookScope: isBook)
+        do {
+            exportedFile = try LocalNameFilterListExport.write(
+                content, fileStem: flavor == .prefix ? "TienTo" : "HauTo", isBookScope: isBook
+            )
+        } catch {
+            AppLogger.shared.log("❌ [LọcName] Không xuất được danh sách \(flavor.lowercasedNoun): \(error.localizedDescription)")
+            ToastManager.shared.show(message: "Không xuất được file: \(error.localizedDescription)", type: .error)
+        }
     }
 
     private func resetToDefaults() {
