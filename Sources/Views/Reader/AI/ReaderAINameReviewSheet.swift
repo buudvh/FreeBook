@@ -49,8 +49,8 @@ public struct ReaderAINameReviewSheet: View {
     /// + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`); bấm ⇒ nơi gọi giữ gói tạm rồi về
     /// trang đầu "Lọc name local", sheet không đóng. Luồng AI: `nil` ⇒ header như cũ.
     let onBack: (() -> Void)?
-    /// Luồng lọc local: hàng "Đuôi" ở màn Sửa từ của name không phải người + ghép lại nghĩa ngay sau khi thêm / sửa đuôi
-    /// (plan 2026-11-27-nghia-ten-tay-huyen mục 7, `+Edit`). Luồng AI: `nil`.
+    /// Luồng lọc local: hàng "Tiền tố" + "Hậu tố" ở màn Sửa từ của mọi name trừ họ tộc + ghép lại nghĩa ngay sau khi thêm /
+    /// sửa một mục (plan 2026-11-27-nghia-ten-tay-huyen mục 7, 2026-11-27-phan-loai-name L10 / L11, `+Edit`). Luồng AI: `nil`.
     let localSuffixContext: LocalNameFilterReviewSuffixContext?
     /// `\.sheetPageBack` của nơi trình bày — trả lại cho sheet Sửa từ để nút ‹ của màn duyệt không lan vào đó.
     @Environment(\.sheetPageBack) private var inheritedSheetPageBack

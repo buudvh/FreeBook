@@ -14,10 +14,11 @@ import SwiftUI
 ///
 /// Mục mang khoá đích sau lần sửa mất cờ `isGuessedMeaning` (nhãn "đoán"): nghĩa của nó giờ do người dùng chốt.
 ///
-/// Luồng lọc local, name không phải người: màn Sửa từ có thêm hàng **"Đuôi"** (`LocalNameFilterSuffixQuickRow`, plan
-/// 2026-11-27-nghia-ten-tay-huyen mục 7); thêm / sửa đuôi xong ⇒ ghép lại nghĩa ngay các name có đuôi đó mà nghĩa vẫn do
-/// máy ghép (`LocalNameFilterReviewSuffixContext.recompose`), ô nghĩa của màn Sửa từ theo nếu người dùng chưa gõ khác
-/// (`followsOriginalValue`), toast "Đã thêm đuôi 街 · ghép lại N name".
+/// Luồng lọc local, mọi loại name trừ họ tộc: màn Sửa từ có thêm hai hàng **"Tiền tố"** rồi **"Hậu tố"**
+/// (`LocalNameFilterSuffixQuickRow`, plan 2026-11-27-nghia-ten-tay-huyen mục 7, 2026-11-27-phan-loai-name mục 7 / 10 / L10 /
+/// L11); thêm / sửa một mục xong ⇒ ghép lại nghĩa ngay các name kết thúc bằng hậu tố / mở đầu bằng tiền tố đó mà nghĩa vẫn
+/// do máy ghép (`LocalNameFilterReviewSuffixContext.recompose`), ô nghĩa của màn Sửa từ theo nếu người dùng chưa gõ khác
+/// (`followsOriginalValue`), toast "Đã thêm hậu tố 街 · ghép lại N name".
 extension ReaderAINameReviewSheet {
     static let editBadgeText = "AI · Riêng truyện"
     /// Badge màn Sửa từ khi mở từ luồng "Lọc name local" (danh sách có sẵn, không có tin AI nguồn).
@@ -40,29 +41,36 @@ extension ReaderAINameReviewSheet {
             },
             onDefinitionsChanged: { refreshDictionaryFlags() },
             badgeText: prefilledNames == nil ? Self.editBadgeText : Self.localFilterEditBadgeText,
-            accessoryRows: suffixRow(for: item),
+            accessoryRows: affixRows(for: item),
             followsOriginalValue: localSuffixContext != nil
         )
     }
 
-    /// Hàng "Đuôi" của màn Sửa từ — chỉ luồng lọc local, name không phải người.
-    private func suffixRow(for item: AIExtractedName) -> AnyView? {
-        guard let context = localSuffixContext, let kind = context.suffixKind(for: item) else { return nil }
-        return AnyView(LocalNameFilterSuffixQuickRow(name: item.original, kind: kind) { key, replaced, isNew in
-            suffixDidSave(key: key, replaced: replaced, isNew: isNew)
+    /// Hai hàng "Tiền tố" + "Hậu tố" của màn Sửa từ (mockup khung 2–3: tiền tố trên, hậu tố dưới) — chỉ luồng lọc local,
+    /// mọi loại name trừ họ tộc.
+    private func affixRows(for item: AIExtractedName) -> AnyView? {
+        guard let context = localSuffixContext, let kind = context.affixKind(for: item) else { return nil }
+        return AnyView(VStack(alignment: .leading, spacing: 14) {
+            LocalNameFilterSuffixQuickRow(flavor: .prefix, name: item.original, kind: kind) { key, replaced, isNew in
+                affixDidSave(.prefix, key: key, replaced: replaced, isNew: isNew)
+            }
+            LocalNameFilterSuffixQuickRow(flavor: .suffix, name: item.original, kind: kind) { key, replaced, isNew in
+                affixDidSave(.suffix, key: key, replaced: replaced, isNew: isNew)
+            }
         })
     }
 
-    /// Đuôi vừa thêm / sửa ⇒ ghép lại nghĩa các name có đuôi đó (nghĩa còn do máy ghép), áp cho name chưa bị sửa trong lúc
-    /// chờ; name đang mở ở màn Sửa từ cập nhật theo (`editingName` ⇒ `originalValue`). Toast số name đã ghép lại.
-    /// Sửa đuôi có sẵn mà đổi chữ (`replaced`) ⇒ ghép lại cả name mang khoá cũ (nghĩa của chúng dựa vào đuôi vừa mất). Lượt
-    /// thứ hai chạy sau lượt đầu nên name mang cả hai khoá chỉ đổi một lần (`recompose` so với nghĩa máy ghép mới nhất).
-    func suffixDidSave(key: String, replaced: String?, isNew: Bool) {
+    /// Hậu tố / tiền tố vừa thêm / sửa ⇒ ghép lại nghĩa các name kết thúc / mở đầu bằng nó (nghĩa còn do máy ghép), áp cho
+    /// name chưa bị sửa trong lúc chờ; name đang mở ở màn Sửa từ cập nhật theo (`editingName` ⇒ `originalValue`). Toast số
+    /// name đã ghép lại. Sửa mục có sẵn mà đổi chữ (`replaced`) ⇒ ghép lại cả name mang khoá cũ (nghĩa của chúng dựa vào mục
+    /// vừa mất). Lượt thứ hai chạy sau lượt đầu nên name mang cả hai khoá chỉ đổi một lần (`recompose` so với nghĩa máy ghép
+    /// mới nhất).
+    func affixDidSave(_ flavor: LocalNameFilterAffixListFlavor, key: String, replaced: String?, isNew: Bool) {
         guard let context = localSuffixContext else { return }
-        let suffixes = [key] + (replaced.map { $0 == key ? [] : [$0] } ?? [])
-        // Xếp hàng trong `context`: lưu hai đuôi liền nhau ⇒ lượt sau đọc `names` đã áp lượt trước. Nhảy sang main-actor
+        let affixes = [key] + (replaced.map { $0 == key ? [] : [$0] } ?? [])
+        // Xếp hàng trong `context`: lưu hai mục liền nhau ⇒ lượt sau đọc `names` đã áp lượt trước. Nhảy sang main-actor
         // tường minh như bản trước (hàm này có thể được coi là nonisolated tuỳ phiên bản SDK).
-        Task { @MainActor in context.enqueueRecompose(suffixes: suffixes, currentNames: { names }) { changes in
+        Task { @MainActor in context.enqueueRecompose(affixes: affixes, flavor: flavor, currentNames: { names }) { changes in
             var updated = names
             var applied = 0
             for index in updated.indices {
@@ -78,7 +86,7 @@ extension ReaderAINameReviewSheet {
                 }
             }
             ToastManager.shared.show(
-                message: "\(isNew ? "Đã thêm" : "Đã lưu") đuôi \(key) · ghép lại \(applied) name",
+                message: "\(isNew ? "Đã thêm" : "Đã lưu") \(flavor.lowercasedNoun) \(key) · ghép lại \(applied) name",
                 type: .success
             )
         } }

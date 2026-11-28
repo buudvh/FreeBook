@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1108] - 2026-11-28
+
+### feat: màn Sửa từ của màn duyệt lọc name local có hàng Tiền tố và Hậu tố cho mọi name, hiện đủ mục nằm trong cụm
+
+Plan 2026-11-27-phan-loai-name mục 7, 10, L10, L11 (anh Bửu: "Ngoài lựa chọn nhanh hãy hiển thị đủ các hậu tố và tiền tố
+nằm trong cụm", "sắp xếp theo thứ tự số từ tăng dần"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 2–3.
+
+- `LocalNameFilterSuffixQuickRow(flavor:)` dùng cho hai hàng "Tiền tố" (trên) và "Hậu tố" (dưới), hiện cho mọi loại name
+  kể cả tên người (mục mới mặc định Nhân danh); họ tộc (萧家) vẫn không có.
+- Chip ✓ cho mọi mục có sẵn nằm trong cụm, dài 1–6 chữ: hậu tố ở cuối hoặc giữa cụm (东城区血刀帮 ⇒ ✓ 区, ✓ 帮), tiền tố ở
+  đầu hoặc giữa cụm; chạm ⇒ sửa mục đó. Dấu ● trên mục đang ghép nghĩa: hậu tố dài nhất ở cuối / tiền tố dài nhất ở đầu,
+  cùng nhóm với name như bộ ghép (Nhân danh ⇄ tên người). Chip "+" cho đoạn cuối / đầu 1–3 chữ chưa có; "+ Thêm hậu tố /
+  tiền tố" (mở cả cụm) luôn cuối hàng; mọi chip xếp theo số chữ tăng dần (陈太上长老: 老 · 长老 · + 上长老 · ● 太上长老).
+- `LocalNameFilterReviewSuffixContext`: `affixKind(for:)` thay `suffixKind` (tên người ⇒ Nhân danh);
+  `enqueueRecompose(affixes:flavor:)` ghép lại name kết thúc bằng hậu tố / mở đầu bằng tiền tố vừa lưu, kể cả tên người,
+  truyền nghĩa máy ghép lần trước (giữ danh xưng 1 chữ "Lâm ca") và danh sách tiền tố hiện tại.
+- Toast "Đã thêm hậu tố / tiền tố X · ghép lại N name".
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1107] - 2026-11-28
 
 ### feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách
@@ -387,15 +407,3 @@ Bước đầu của đợt "Lọc name local bằng LAC" (anh Bửu duyệt 202
 - `LocalNameFilter`: `Kind.term` (thuật ngữ); nhóm `Category` (Nhân danh / Địa danh / Tổ chức / Thuật ngữ) — `Kind.category`, `label` theo nhóm (tông môn + họ tộc ⇒ "Tổ chức"); `SuffixKind.term` + `SuffixKind.category`; `Configuration.categories` ("Loại cần tìm", mặc định cả bốn); `Event.preparingModel(fraction:)`; `Snapshot.knownCount` thay `hiddenKnownCount` — name đã có không còn bị ẩn, màn duyệt gắn badge NE / VP và bỏ chọn sẵn như luồng AI.
 - `NameFilter/NER/`: `LACToken`, giao thức `LACTagging` (một dòng ⇒ các từ + nhãn, an toàn đa luồng), `LACModelError`, `LACModel.prepare(progress:)` (bản giữ chỗ). Model đã đẩy lên `datasets/raikiri1498/vietpharse` thư mục `lac/`, commit `73bb76d4`.
 - Commit này một mình **chưa biên dịch được** (các `switch` trên `Kind` / `SuffixKind` / `Event` chưa có nhánh mới) — các phần sau của đợt bổ sung, chỉ push khi đủ.
-
-## [1.3.1081] - 2026-11-27
-
-### fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc
-
-Anh Bửu thử 1.3.1080 (hết văng, 𫄸 thành một ô) và gửi ảnh: chọn riêng 𫄸 ⇒ ô nghĩa hiện nguyên "𫄸" trong khi chip có "huân" (VietPhrase Chung).
-
-- **Nguyên nhân**: `TranslateUtils.translateTerm` chỉ tra từ điển khi `containsChinese` đúng, mà hàm này chỉ nhận U+4E00–9FFF ⇒ chữ khối mở rộng C trở đi bị trả nguyên văn (bấm "Cập nhật" lúc đó là lưu nhầm `𫄸=𫄸`). `VietPhraseTokenizer.isChineseCharacter` cũng chỉ có cơ bản + mở rộng A, B.
-- **Sửa**: bảng dải chữ Hán dùng chung mới `ChineseCharacterClassifier` (`Services/Translation/Utils/`): cơ bản, mở rộng A, B–F + I, G–H, chữ tương thích (F900–FAFF, 2F800–2FA1F). `containsChinese` và `isChineseCharacter` cùng gọi vào đây.
-- **Ảnh hưởng** (22 file gọi hai hàm này): chuỗi đã có chữ Hán cơ bản cho kết quả y như cũ; chỉ chuỗi mà chữ Hán **toàn** thuộc khối mở rộng / tương thích mới đổi từ "để nguyên" sang "được dịch / phiên âm" (chương, TTS, phụ đề, tên truyện…); token một chữ mở rộng không có trong từ điển giờ lùi về phiên âm Hán-Việt như chữ thường.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
-- Dọn: entry 1.3.1051 chuyển sang `CHANGELOG.archive.md`.

@@ -42,9 +42,10 @@ struct DictEntryEditSheet: View {
     /// Danh sách `chữ Hán = …` ngoài từ điển (đuôi, "Không phải name", họ, token tùy chọn) — xem `DictEntryEditListMode`
     /// và `DictEntryEditSheet+List.swift`. `nil` = từ điển VP / Name / Pronouns / name AI, hành vi như cũ.
     let listMode: DictEntryEditListMode?
-    /// Hàng phụ ở chế độ từ điển, đặt sau aa…AA (vd hàng "Đuôi" khi mở từ màn duyệt Lọc name local). `nil` = không có.
+    /// Hàng phụ ở chế độ từ điển, đặt sau aa…AA (vd hàng "Tiền tố" / "Hậu tố" khi mở từ màn duyệt Lọc name local). `nil` =
+    /// không có.
     let accessoryRows: AnyView?
-    /// `true` ⇒ nơi mở đổi `originalValue` khi sheet đang mở (màn duyệt ghép lại nghĩa sau khi thêm đuôi) thì ô nghĩa theo,
+    /// `true` ⇒ nơi mở đổi `originalValue` khi sheet đang mở (màn duyệt ghép lại nghĩa sau khi thêm hậu tố) thì ô nghĩa theo,
     /// **trừ khi** người dùng đã gõ nghĩa khác giá trị cũ. Mặc định `false` = như cũ.
     let followsOriginalValue: Bool
 

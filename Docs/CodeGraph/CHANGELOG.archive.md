@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1081] - 2026-11-27
+
+### fix: nhận diện chữ Hán gồm cả khối mở rộng để panel Dịch điền đúng nghĩa chữ hiếm như 𫄸 thay vì chữ gốc
+
+Anh Bửu thử 1.3.1080 (hết văng, 𫄸 thành một ô) và gửi ảnh: chọn riêng 𫄸 ⇒ ô nghĩa hiện nguyên "𫄸" trong khi chip có "huân" (VietPhrase Chung).
+
+- **Nguyên nhân**: `TranslateUtils.translateTerm` chỉ tra từ điển khi `containsChinese` đúng, mà hàm này chỉ nhận U+4E00–9FFF ⇒ chữ khối mở rộng C trở đi bị trả nguyên văn (bấm "Cập nhật" lúc đó là lưu nhầm `𫄸=𫄸`). `VietPhraseTokenizer.isChineseCharacter` cũng chỉ có cơ bản + mở rộng A, B.
+- **Sửa**: bảng dải chữ Hán dùng chung mới `ChineseCharacterClassifier` (`Services/Translation/Utils/`): cơ bản, mở rộng A, B–F + I, G–H, chữ tương thích (F900–FAFF, 2F800–2FA1F). `containsChinese` và `isChineseCharacter` cùng gọi vào đây.
+- **Ảnh hưởng** (22 file gọi hai hàm này): chuỗi đã có chữ Hán cơ bản cho kết quả y như cũ; chỉ chuỗi mà chữ Hán **toàn** thuộc khối mở rộng / tương thích mới đổi từ "để nguyên" sang "được dịch / phiên âm" (chương, TTS, phụ đề, tên truyện…); token một chữ mở rộng không có trong từ điển giờ lùi về phiên âm Hán-Việt như chữ thường.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
+- Dọn: entry 1.3.1051 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1080] - 2026-11-27
 
 ### fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ
