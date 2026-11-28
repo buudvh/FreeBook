@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1140",
+          "buildVersion": "1370",
+          "date": "2026-11-28T15:53:00Z",
+          "localizedDescription": "- feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1370/TangCongCac-1.3.1140-1370.ipa",
+          "size": 48784036,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1139",
           "buildVersion": "1369",
           "date": "2026-11-28T15:24:35Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1366/TangCongCac-1.3.1136-1366.ipa",
           "size": 48747254,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1135",
-          "buildVersion": "1365",
-          "date": "2026-11-28T12:20:59Z",
-          "localizedDescription": "- feat: gỡ giọng vtts nam-1 và Google Dịch khỏi app, chỉ còn nu-10 và Ngọc Huyền",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1365/TangCongCac-1.3.1135-1365.ipa",
-          "size": 48746578,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1139",
-      "versionDate": "2026-11-28T15:24:35Z",
-      "versionDescription": "- feat: lọc name local trả lại tên thật bị các luật lọc cũ bỏ nhầm như 江明月, 柯大力, 云梦商会, 史莱克城",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1369/TangCongCac-1.3.1139-1369.ipa",
-      "size": 48784840,
+      "version": "1.3.1140",
+      "versionDate": "2026-11-28T15:53:00Z",
+      "versionDescription": "- feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1370/TangCongCac-1.3.1140-1370.ipa",
+      "size": 48784036,
       "appPermissions": {}
     }
   ],
