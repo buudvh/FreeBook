@@ -9,6 +9,10 @@ import Foundation
 ///   hậu tố / mở đầu bằng tiền tố đó (còn ≥ 1 chữ phía bên kia), nghĩa vẫn do máy ghép — bằng đúng bộ ghép nghĩa của bộ lọc
 ///   với danh sách hậu tố + tiền tố hiện tại + công tắc "Ưu tiên tên Latin" của truyện.
 ///
+/// - **đổi Phân loại** của một name trong lượt duyệt (`changeKind`, 2026-11-28 — mockup
+///   https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2, hợp đồng lõi mục 7): nghĩa máy ghép + loại của gói tạm theo
+///   nhóm mới, ghép lại nghĩa khi người dùng chưa sửa tay; nhóm lúc lọc nhớ trong bộ nhớ (`originalCategory`), không lưu.
+///
 /// `LocalNameFilterSession` tạo khi vào màn duyệt (lọc xong / mở gói); nghĩa máy ghép đổi thì báo lại session (`onChange`)
 /// để gói tạm mang bản mới. `public` chỉ vì `ReaderAINameReviewSheet` (kiểu `public`) nhận nó ở init.
 ///
@@ -25,8 +29,11 @@ public final class LocalNameFilterReviewSuffixContext {
     let bookId: String
     private(set) var autoMeanings: [String: LocalNameFilterDraft.AutoMeaning]?
     private let onChange: ([String: LocalNameFilterDraft.AutoMeaning]) -> Void
-    /// Lượt ghép lại trước (`enqueueRecompose`): lượt sau chờ nó xong — cả bước áp lên màn — rồi mới đọc danh sách.
+    /// Lượt ghép lại trước (`enqueueRecompose`, `changeKind`): lượt sau chờ nó xong — cả bước áp lên màn — rồi mới đọc danh
+    /// sách.
     private var queue: Task<Void, Never>?
+    /// Nhóm lúc lọc của name đã đổi Phân loại trong lượt duyệt này (khoá = chữ Hán) — chỉ bộ nhớ, đóng màn duyệt là mất.
+    private var originalCategories: [String: LocalNameFilter.Category] = [:]
 
     init(
         bookId: String,
@@ -38,19 +45,13 @@ public final class LocalNameFilterReviewSuffixContext {
         self.onChange = onChange
     }
 
-    /// Loại gợi ý khi thêm hậu tố / tiền tố từ name này = nhóm của name (tên người ⇒ Nhân danh); `nil` = họ tộc (không có
-    /// hàng "Tiền tố" / "Hậu tố"). Theo loại lúc lọc, gói cũ chưa có thì theo nhãn nhóm của hàng.
+    /// Loại gợi ý khi thêm hậu tố / tiền tố từ name này = nhóm **đang hiện** của name (nhãn badge — đổi ngay khi người dùng
+    /// đổi Phân loại, trước khi `changeKind` kịp ghi gói tạm; tên người ⇒ Nhân danh); `nil` = họ tộc hoặc nhãn ngoài bốn nhóm
+    /// (không có hàng "Phân loại" / "Tiền tố" / "Hậu tố").
     func affixKind(for item: AIExtractedName) -> LocalNameFilter.SuffixKind? {
-        if let kind = autoMeanings?[item.original]?.kind {
-            switch kind {
-            case .person: return .person
-            case .place: return .place
-            case .sect: return .sect
-            case .term: return .term
-            // Họ tộc (萧家) không bao giờ ghép lại (`canRecompose`) ⇒ không có hàng.
-            case .family: return nil
-            }
-        }
+        // Họ tộc (萧家) không bao giờ ghép lại (`canRecompose`) ⇒ không có hàng; nhãn của nó trùng "Tổ chức" nên phải hỏi
+        // loại lúc lọc.
+        if autoMeanings?[item.original]?.kind == .family { return nil }
         switch item.category {
         case LocalNameFilter.Category.person.label: return .person
         case LocalNameFilter.Category.place.label: return .place
@@ -58,6 +59,18 @@ public final class LocalNameFilterReviewSuffixContext {
         case LocalNameFilter.Category.term.label: return .term
         default: return nil
         }
+    }
+
+    /// Nhóm lúc lọc của name nếu lượt duyệt này đã đổi Phân loại của nó (hàng "Phân loại" ghi "Lúc lọc: …").
+    func originalCategory(of term: String) -> LocalNameFilter.Category? {
+        originalCategories[term]
+    }
+
+    /// Ghi nhớ nhóm lúc lọc **trước** lần đổi đầu tiên (lần sau giữ giá trị cũ). Gọi đồng bộ từ màn duyệt để hàng "Phân loại"
+    /// vẽ lại ngay đã có nhãn.
+    func rememberOriginalCategory(_ category: LocalNameFilter.Category?, of term: String) {
+        guard let category, originalCategories[term] == nil else { return }
+        originalCategories[term] = category
     }
 
     /// Xếp hàng một lượt ghép lại sau khi lưu hậu tố / tiền tố: các lượt chạy **lần lượt** (lưu hai mục liền nhau, nhất là
@@ -99,38 +112,9 @@ public final class LocalNameFilterReviewSuffixContext {
         }
         guard !candidates.isEmpty else { return [:] }
 
-        let bookId = self.bookId
-        let suffixes = LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId)
-        var latinModel: LocalNameFilterLatinModel?
-        if LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId) {
-            do {
-                latinModel = try await LocalNameFilterLatinModelGate.shared.model()
-            } catch {
-                if !(error is CancellationError) {
-                    AppLogger.shared.log("❌ [LọcName] Không ghép lại nghĩa sau khi thêm \(flavor.lowercasedNoun): thiếu mô hình "
-                        + "đoán tên Latin — " + error.localizedDescription)
-                }
-                return [:]
-            }
-        }
-        let model = latinModel
-        let prefixes = LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
         // Nghĩa máy ghép lần trước đi kèm: tên người giữ danh xưng 1 chữ đã dùng ("Lâm ca") như gói tạm tự cập nhật.
         let terms = candidates.map { (term: $0.term, kind: $0.kind, previous: $0.old) }
-        let rebuilt = await Task.detached(priority: .userInitiated) { () -> [String: (meaning: String, isGuessed: Bool)] in
-            guard let composer = LocalNameFilterMeaningComposer(
-                bookId: bookId, suffixes: suffixes, latinModel: model, prefixes: prefixes
-            ) else {
-                return [:]
-            }
-            var result: [String: (meaning: String, isGuessed: Bool)] = [:]
-            for item in terms where result[item.term] == nil {
-                if let built = composer.meaning(term: item.term, kind: item.kind, previousMeaning: item.previous) {
-                    result[item.term] = built
-                }
-            }
-            return result
-        }.value
+        guard let rebuilt = await composeMeanings(terms, reason: "thêm \(flavor.lowercasedNoun)") else { return [:] }
 
         var changes: [UUID: Change] = [:]
         for candidate in candidates {
@@ -152,5 +136,87 @@ public final class LocalNameFilterReviewSuffixContext {
                 + "ở màn duyệt")
         }
         return changes
+    }
+
+    /// Đổi **Phân loại** của một name (hàng "Phân loại" ở màn Sửa từ; hợp đồng lõi mục 7): xếp vào **cùng hàng đợi** với
+    /// `enqueueRecompose` (vừa đổi loại vừa thêm hậu tố không chồng lượt). Màn duyệt đã đổi nhãn badge trước khi gọi.
+    /// - Ghi `autoMeanings[term]` = nghĩa máy ghép theo **loại mới** (ghép không được ⇒ giữ nghĩa cũ) + loại mới, báo session
+    ///   (`onChange`) ⇒ gói tạm nhớ loại mới, gói tạm tự cập nhật ghép theo loại mới.
+    /// - Chỉ khi nghĩa đang hiện **vẫn là nghĩa máy** (chưa sửa tay) và nghĩa mới khác thật ⇒ `apply` một `Change` để màn duyệt
+    ///   đổi nghĩa + cờ "đoán".
+    /// Gói cũ không có nghĩa máy ghép (`autoMeanings == nil`) hoặc name không có trong đó ⇒ không làm gì (chỉ đổi nhãn).
+    @MainActor
+    func changeKind(
+        of term: String,
+        itemId: UUID,
+        to kind: LocalNameFilter.Kind,
+        currentNames: @escaping @MainActor () -> [AIExtractedName],
+        apply: @escaping @MainActor (Change) -> Void
+    ) {
+        let previous = queue
+        queue = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self, let entry = self.autoMeanings?[term], entry.kind != kind else { return }
+            var machineMeaning = entry.meaning
+            var change: Change?
+            if LocalNameFilterMeaningComposer.canRecompose(kind),
+               let built = await self.composeMeanings([(term: term, kind: kind, previous: entry.meaning)],
+                                                      reason: "đổi phân loại")?[term] {
+                machineMeaning = built.meaning
+                if let item = currentNames().first(where: { $0.id == itemId }),
+                   item.suggestedMeaning == entry.meaning, built.meaning != item.suggestedMeaning {
+                    change = Change(old: item.suggestedMeaning, new: built.meaning, isGuessed: built.isGuessed)
+                }
+            }
+            // Gộp vào bản hiện tại (các `await` ở trên có thể đã để lượt khác ghi `autoMeanings`).
+            var current = self.autoMeanings ?? [:]
+            current[term] = LocalNameFilterDraft.AutoMeaning(meaning: machineMeaning, kind: kind)
+            self.autoMeanings = current
+            self.onChange(current)
+            AppLogger.shared.log("🔎 [LọcName] Đổi phân loại \(term) ⇒ \(kind.label)"
+                + (change == nil ? "" : ", ghép lại nghĩa ở màn duyệt"))
+            if let change { apply(change) }
+        }
+    }
+
+    /// Ghép nghĩa máy cho `terms` bằng đúng bộ ghép của bộ lọc với danh sách hậu tố + tiền tố **hiệu lực của truyện**
+    /// (`allSuffixes(bookId:)` / `allPrefixes(bookId:)`, khớp dấu gói tạm) + mô hình Latin khi truyện bật "Ưu tiên tên Latin";
+    /// chạy ngoài main. Trả nghĩa theo chữ Hán (thiếu ⇒ không ghép được); `nil` = bật Latin mà thiếu mô hình (đã log) — nơi
+    /// gọi không đổi gì. `reason` vào dòng log lỗi.
+    @MainActor
+    private func composeMeanings(
+        _ terms: [(term: String, kind: LocalNameFilter.Kind, previous: String)],
+        reason: String
+    ) async -> [String: (meaning: String, isGuessed: Bool)]? {
+        let bookId = self.bookId
+        let suffixes = LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId)
+        var latinModel: LocalNameFilterLatinModel?
+        if LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId) {
+            do {
+                latinModel = try await LocalNameFilterLatinModelGate.shared.model()
+            } catch {
+                if !(error is CancellationError) {
+                    AppLogger.shared.log("❌ [LọcName] Không ghép lại nghĩa sau khi \(reason): thiếu mô hình "
+                        + "đoán tên Latin — " + error.localizedDescription)
+                }
+                return nil
+            }
+        }
+        let model = latinModel
+        let prefixes = LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId)
+        return await Task.detached(priority: .userInitiated) { () -> [String: (meaning: String, isGuessed: Bool)] in
+            guard let composer = LocalNameFilterMeaningComposer(
+                bookId: bookId, suffixes: suffixes, latinModel: model, prefixes: prefixes
+            ) else {
+                return [:]
+            }
+            var result: [String: (meaning: String, isGuessed: Bool)] = [:]
+            for item in terms where result[item.term] == nil {
+                if let built = composer.meaning(term: item.term, kind: item.kind, previousMeaning: item.previous) {
+                    result[item.term] = built
+                }
+            }
+            return result
+        }.value
     }
 }

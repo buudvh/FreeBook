@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// Khối **hàng phụ** của màn Sửa từ khi mở từ màn duyệt Lọc name local (`DictEntryEditSheet.accessoryRows`, mockup
-/// https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2): "Tiền tố" (có nút ⚙ cuối dòng nhãn) rồi "Hậu tố"
-/// (`LocalNameFilterSuffixQuickRow`). Mọi name trừ họ tộc.
+/// https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2): "Phân loại" (`LocalNameFilterReviewCategoryRow`) trên cùng,
+/// rồi "Tiền tố" (có nút ⚙ cuối dòng nhãn) và "Hậu tố" (`LocalNameFilterSuffixQuickRow`). Mọi name trừ họ tộc.
 ///
 /// Giữ màn **Quản lý tiền tố, hậu tố** (`LocalNameFilterAffixManagerView`) — trình bày ở đây (trong cây view của sheet Sửa
 /// từ), không ở màn duyệt: màn duyệt đang trình bày sheet Sửa từ nên không mở thêm sheet được. Mỗi lần một hàng / màn quản
 /// lý ghi danh sách ⇒ tăng `revision` để cả hai hàng đọc lại (hàng không tự biết hàng kia hay màn quản lý vừa ghi; `onAppear`
 /// không chạy lại khi sheet phủ lên đóng) rồi báo màn duyệt (`onAffixChanged` ⇒ ghép lại nghĩa + toast).
 ///
-/// Nằm trọn trong `accessoryRows` nên nấc vừa khít của màn Sửa từ tự tính mọi hàng (ghi chú `loc-review-ui-a`).
+/// Nằm trọn trong `accessoryRows` nên nấc vừa khít của màn Sửa từ tự tính cả hàng Phân loại (ghi chú `loc-review-ui-a`).
 struct LocalNameFilterReviewAffixRows: View {
     typealias Flavor = LocalNameFilterAffixListFlavor
 
@@ -17,6 +17,11 @@ struct LocalNameFilterReviewAffixRows: View {
     let bookId: String
     /// Loại gợi ý cho mục mới = nhóm hiện tại của name.
     let kind: LocalNameFilter.SuffixKind
+    /// Nhóm đang hiện ở badge.
+    let category: LocalNameFilter.Category?
+    /// Nhóm lúc lọc nếu lượt duyệt còn nhớ (`LocalNameFilterReviewSuffixContext.originalCategory`).
+    let originalCategory: LocalNameFilter.Category?
+    let onCategoryChange: (LocalNameFilter.Category) -> Void
     /// Một mục vừa thêm / sửa / xoá: danh sách, khoá, khoá cũ khi đổi chữ, động từ của toast.
     let onAffixChanged: (_ flavor: Flavor, _ key: String, _ replaced: String?, _ verb: String) -> Void
 
@@ -25,6 +30,7 @@ struct LocalNameFilterReviewAffixRows: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            LocalNameFilterReviewCategoryRow(selection: category, original: originalCategory, onSelect: onCategoryChange)
             LocalNameFilterSuffixQuickRow(
                 flavor: .prefix, name: name, bookId: bookId, kind: kind, revision: revision,
                 onManage: { showingManager = true },

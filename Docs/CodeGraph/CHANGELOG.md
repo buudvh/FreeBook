@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1116] - 2026-11-28
+
+### feat: màn Sửa từ của màn duyệt lọc name local có hàng Phân loại đổi nhóm name, ghép lại nghĩa theo nhóm mới
+
+Plan "Tiền tố hậu tố riêng truyện" mục C11, mockup bản 3 https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2 (anh Bửu duyệt).
+
+- Hàng **Phân loại** (`LocalNameFilterReviewCategoryRow`) đứng trên hàng Tiền tố trong khối hàng phụ của màn Sửa từ (luồng lọc name local, mọi name trừ họ tộc): nhãn + nút "?", bốn ô Nhân danh / Địa danh / Tổ chức / Thuật ngữ có chấm màu của badge nhóm (`LocalNameFilterCategoryBadge.color(for:)`), bên phải ghi "Lúc lọc: X" khi đã đổi khác nhóm lúc lọc (chỉ nhớ trong lượt duyệt).
+- Đổi nhóm ⇒ badge và số trên chip lọc của màn duyệt đổi ngay, hàng Tiền tố / Hậu tố gợi ý loại theo nhóm mới (`affixKind(for:)` nay đọc nhãn badge, chỉ hỏi loại lúc lọc để loại họ tộc). `LocalNameFilterReviewSuffixContext.changeKind` xếp vào cùng hàng đợi với ghép lại sau khi thêm hậu tố: ghi nghĩa máy + loại mới vào gói tạm (`autoMeanings`), ghép lại nghĩa theo nhóm mới chỉ khi nghĩa đang hiện chưa sửa tay (đổi cả cờ "đoán"). Gói cũ không có nghĩa máy ghép ⇒ chỉ đổi nhãn. Không nhớ cho lần lọc sau.
+- Phần "lấy mô hình Latin + dựng bộ ghép bằng danh sách hiệu lực của truyện + chạy ngoài main" tách thành `composeMeanings` dùng chung cho ghép lại sau khi thêm hậu tố và đổi phân loại.
+
 ## [1.3.1115] - 2026-11-28
 
 ### feat: tiền tố hậu tố riêng truyện ở màn Sửa từ có cụm R | C, màn quản lý tiền tố hậu tố của name và chip phạm vi ở danh sách
@@ -455,17 +465,3 @@ Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, 
 ## [1.3.1088] - 2026-11-27
 
 ### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
-
-## [1.3.NNN] - 2026-11-27
-### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
-
-Phần giao diện của đợt "Lọc name local bằng LAC" (plan `Docs/Plans/2026-11-27-loc-name-lac.md` mục E, E2 và bước 0; mockup https://claude.ai/artifact/Tx6oQ2Xd7KeaEybnnZ3cQq khung 1–5).
-
-- **Loại cần tìm** (sheet thiết lập): 4 chip Nhân danh / Địa danh / Tổ chức / Thuật ngữ có chấm màu, mặc định bật cả 4, không tắt được chip cuối; nhớ bằng `@AppStorage` `localNameFilterCategories` (rawValue nối phẩy, rỗng = cả 4) ⇒ `Configuration.categories`. Nút "?" giải thích. Màu nhóm ở một chỗ `LocalNameFilterCategoryBadge.color(for:)` (xanh dương / xanh lá / cam / tím), dùng cho chấm chip, hàng hiện dần và thẻ duyệt. Hàng danh sách đuôi đổi tên "Đuôi địa danh, tổ chức, thuật ngữ". Không có hàng tải model.
-- **Màn đang lọc**: `.preparingModel` ⇒ dòng "Tải model" + % (đang tải) / "Nạp model…" (nạp + tự kiểm), xong hiện ✓; bước đọc đổi tên "Phân tích chương". `.failed(msg)` (kể cả tải model lỗi) ⇒ phase mới `.failed`: thẻ lỗi + thanh đáy "Quay lại" / "Thử lại" (chạy lại đúng cấu hình, `LocalNameFilterSession.StartRequest`). Hàng hiện dần có badge loại màu.
-- **NE / VP như luồng AI**: `LocalNameFilterSession` dựng `AIExtractedName` (nhãn = `Category.label`) rồi qua `AIBookDataInspector.decorateExtractedNames` ngoài main ⇒ badge NE / VP, name đã có bỏ chọn sẵn; toast "Lọc xong: N name · M đã có". `hiddenKnownCount` không còn dùng.
-- **Màn duyệt** (chỉ luồng lọc local, luồng AI giữ nguyên hành vi): hàng chip "Tất cả N · Nhân danh N · Địa danh N · Tổ chức N · Thuật ngữ N" (`ReaderAINameReviewCategoryBar`, chỉ nhóm có mục, kiểu chip `ExtensionKindFilterBar`); chip chỉ ẩn hàng, Chọn hết / Bỏ chọn / Lưu vẫn tính cả danh sách; nhóm đang chọn hết mục ⇒ về Tất cả. Badge loại có màu cho 4 nhãn, nhãn khác xám. Cụm badge tách sang `ReaderAINameReviewBadges` (thẻ giữ dưới 400 dòng).
-- **Gói tạm** (`Services/Translation/NameFilter/Drafts/`): `LocalNameFilterDraftStore` ghi `name_filter_drafts/<sha256(bookId)>.json`, tối đa 5 gói / truyện (bỏ gói ghi lâu nhất), file hỏng cất `.broken-…`. Gói = danh sách đang duyệt (chữ, nghĩa đã sửa, loại, số lần, đang chọn, cờ NE / VP) + giờ lọc + phạm vi ("chương 1–50" / "193 chương") + số chương. Ghi khi sheet đóng lúc đang duyệt mà chưa Lưu (kể cả sau "Dừng") + toast "Đã giữ gói tạm (N name)", và khi app vào nền lúc đang duyệt. Màn duyệt báo danh sách mới nhất qua `onNamesChange` (chỉ bản nhận sẵn danh sách).
-- Sheet thiết lập có section "Gói tạm chưa lưu (N)" ở đầu (chỉ khi có gói): hàng "giờ · phạm vi", dòng 2 "N name · đang chọn M"; chạm ⇒ mở lại màn duyệt đúng trạng thái; vuốt trái ⇒ Xoá. Lưu thành công ⇒ xoá gói đó; lưu lỗi ⇒ ghi lại gói. Mở lại rồi đóng chưa Lưu ⇒ ghi đè đúng gói đó.
-- Kho theo `bookId`: `StorageUsageCategory.nameFilterDrafts` ("Gói name tạm (lọc name)"); Dọn rác nhóm "Dữ liệu của truyện đã xoá" bắt `<hash>.json` mồ côi (chung luật với ghi chú / dấu trang, `JunkPaths.nameFilterDraftsRoot` vào `allowedRoots`); Đổi nguồn chép (gộp theo id) / xoá qua `BookSourceMigrator`. Luật Dọn rác không đụng model LAC ở `translate/LAC/` (chỉ `*.partial` khi không có lượt tải).
-- Chưa làm: xoá truyện chưa xoá gói tạm (`BookStorageManager.deleteBookSideData` ngoài phạm vi phần này; tới lúc đó Dọn rác bắt file mồ côi). Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`.

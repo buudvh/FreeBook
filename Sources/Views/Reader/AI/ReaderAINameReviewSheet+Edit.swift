@@ -15,11 +15,12 @@ import SwiftUI
 /// Mục mang khoá đích sau lần sửa mất cờ `isGuessedMeaning` (nhãn "đoán"): nghĩa của nó giờ do người dùng chốt.
 ///
 /// Luồng lọc local, mọi loại name trừ họ tộc: màn Sửa từ có thêm khối hàng phụ `LocalNameFilterReviewAffixRows` — hàng
-/// **"Tiền tố"** (nút ⚙ ⇒ màn Quản lý tiền tố, hậu tố, 2026-11-28 — mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2
-/// khung M2 / M3) và **"Hậu tố"** (`LocalNameFilterSuffixQuickRow`, plan 2026-11-27-nghia-ten-tay-huyen mục 7,
+/// **"Phân loại"** (2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2) rồi **"Tiền tố"** (nút ⚙ ⇒
+/// màn Quản lý tiền tố, hậu tố) và **"Hậu tố"** (`LocalNameFilterSuffixQuickRow`, plan 2026-11-27-nghia-ten-tay-huyen mục 7,
 /// 2026-11-27-phan-loai-name mục 7 / 10 / L10 / L11); thêm / sửa / xoá một mục xong ⇒ ghép lại nghĩa ngay các name kết thúc
 /// bằng hậu tố / mở đầu bằng tiền tố đó mà nghĩa vẫn do máy ghép (`LocalNameFilterReviewSuffixContext.recompose`), ô nghĩa
 /// của màn Sửa từ theo nếu người dùng chưa gõ khác (`followsOriginalValue`), toast "Đã thêm hậu tố 街 · ghép lại N name".
+/// Đổi Phân loại ⇒ badge + số chip lọc đổi ngay, nghĩa ghép lại theo nhóm mới nếu chưa sửa tay (`changeCategory`).
 extension ReaderAINameReviewSheet {
     static let editBadgeText = "AI · Riêng truyện"
     /// Badge màn Sửa từ khi mở từ luồng "Lọc name local" (danh sách có sẵn, không có tin AI nguồn).
@@ -47,18 +48,48 @@ extension ReaderAINameReviewSheet {
         )
     }
 
-    /// Khối "Tiền tố" + "Hậu tố" của màn Sửa từ (mockup M2: tiền tố trên, hậu tố dưới) — chỉ luồng lọc local, mọi loại name
-    /// trừ họ tộc.
+    /// Khối "Phân loại" + "Tiền tố" + "Hậu tố" của màn Sửa từ (mockup M2: phân loại trên cùng, tiền tố, hậu tố) — chỉ luồng
+    /// lọc local, mọi loại name trừ họ tộc. `item` là bản mới nhất (`editingName`) ⇒ đổi Phân loại là hàng gợi ý theo loại mới.
     private func affixRows(for item: AIExtractedName) -> AnyView? {
         guard let context = localSuffixContext, let kind = context.affixKind(for: item) else { return nil }
+        let itemId = item.id
         return AnyView(LocalNameFilterReviewAffixRows(
             name: item.original,
             bookId: context.bookId,
             kind: kind,
+            category: LocalNameFilterCategoryBadge.category(forLabel: item.category),
+            originalCategory: context.originalCategory(of: item.original),
+            onCategoryChange: { category in changeCategory(of: itemId, to: category) },
             onAffixChanged: { flavor, key, replaced, verb in
                 affixDidSave(flavor, key: key, replaced: replaced, verb: verb)
             }
         ))
+    }
+
+    /// Đổi Phân loại (hàng "Phân loại", hợp đồng lõi mục 7): đổi nhãn badge **ngay** (số trên chip lọc theo, hàng Tiền tố /
+    /// Hậu tố gợi ý loại mới, gói tạm nhận `names` mới), nhớ nhóm lúc lọc cho dòng "Lúc lọc: …", rồi xếp `changeKind` vào hàng
+    /// đợi của ngữ cảnh: nghĩa máy + loại trong gói tạm theo nhóm mới; nghĩa chưa sửa tay thì ghép lại và áp lên hàng nếu nó
+    /// vẫn là nghĩa cũ (người dùng chưa sửa trong lúc chờ). Không nhớ cho lần lọc sau.
+    func changeCategory(of itemId: UUID, to category: LocalNameFilter.Category) {
+        guard let context = localSuffixContext, let index = names.firstIndex(where: { $0.id == itemId }) else { return }
+        let term = names[index].original
+        let previous = LocalNameFilterCategoryBadge.category(forLabel: names[index].category)
+        guard previous != category else { return }
+        context.rememberOriginalCategory(previous, of: term)
+        names[index].category = category.label
+        if editingName?.id == itemId { editingName = names[index] }
+        let kind = LocalNameFilterLACPipeline.kind(for: category)
+        Task { @MainActor in
+            context.changeKind(of: term, itemId: itemId, to: kind, currentNames: { names }) { change in
+                guard let current = names.firstIndex(where: { $0.id == itemId }),
+                      names[current].suggestedMeaning == change.old else { return }
+                var updated = names
+                updated[current].suggestedMeaning = change.new
+                updated[current].isGuessedMeaning = change.isGuessed
+                names = updated
+                if editingName?.id == itemId { editingName = updated[current] }
+            }
+        }
     }
 
     /// Hậu tố / tiền tố vừa thêm / sửa / xoá ⇒ ghép lại nghĩa các name kết thúc / mở đầu bằng nó (nghĩa còn do máy ghép), áp
