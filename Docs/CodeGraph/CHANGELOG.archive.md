@@ -2,6 +2,14 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1098] - 2026-11-27
+
+### feat: màn duyệt của lọc name local có nút quay lại, giữ danh sách thành gói tạm rồi về trang lọc
+
+- Màn "Duyệt tên riêng & VP" của luồng Lọc name local có nút ‹ ở header (plan 2026-11-27-nghia-ten-tay-huyen mục 5): `ReaderAINameReviewSheet` nhận `onBack` tuỳ chọn ⇒ `HeaderBackButton` + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`, đặt ngoài `NavigationStack`). Luồng AI không truyền ⇒ header như cũ; sheet Sửa từ mở từ màn duyệt nhận lại giá trị `\.sheetPageBack` kế thừa nên không có nút ‹ lạ.
+- Bấm ‹ ⇒ `LocalNameFilterSession.leaveReview`: giữ danh sách đang duyệt thành gói tạm bằng đúng hàm lúc đóng sheet (`keepDraftOnClose`), không toast, rồi về trang đầu "Lọc name local" — sheet không đóng, mục "Gói tạm chưa lưu" hiện ngay (trang đầu nạp lại gói khi hiện ra). Đóng sheet sau đó không ghi gói lần nữa.
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1097] - 2026-11-27
 
 ### feat: lọc name local lấy nghĩa theo từ điển, danh sách đuôi chỉ để dịch nghĩa, công tắc ưu tiên tên Latin theo truyện có mô hình đoán tên

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1128] - 2026-11-28
+
+### docs: ghi chú lọc name local cho lõi Latin tin Name, Nới đoán tên Latin, Không phải name riêng truyện, ghim R C và lịch sử lọc
+
+Cập nhật `.claude/rules/` cho đợt 1.3.1121–1127 (mockup N1–N6, H1–H5 https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2).
+- `translation.md`: lõi tên Latin tin mục Name / VP riêng (`trustedValue`, `latinCore(of:)`); công tắc Nới đoán tên Latin
+  theo truyện + theo name (kèm số đo vì sao mặc định tắt); `rulesVersion` 4; bản tham chiếu `latin_core_of` (env `NAMES`,
+  `LOOSE`); Không phải name riêng truyện + thùng rác ba lựa chọn; ghim R | C + badge R / C; Lịch sử lọc thay section gói tạm.
+- `ui-conventions.md`: ghim R | C và badge góc của chip ✓.
+- `storage.md`: khoá `localNameFilterLooseLatinByBook`, `localNameFilterBookBlockedTerms`, thư mục `name_filter_history/`.
+- `books-sources.md`: các kho theo truyện mới trong Đổi nguồn / xoá truyện.
+
 ## [1.3.1127] - 2026-11-28
 
 ### feat: sheet lọc name local thay gói tạm chưa lưu bằng hàng Lịch sử lọc và trang lịch sử riêng có xoá, dọn dẹp, chọn nhiều
@@ -475,12 +487,4 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 - Mỗi lần trang đầu "Lọc name local" hiện ra (mở sheet, quay lại từ màn danh sách, bấm ‹ ở màn duyệt), `LocalNameFilterDraftRefresher` cập nhật các gói của truyện đang mở ngoài main: bỏ name nằm trong "Không phải name" (xoá cụm khỏi danh sách thì name đã bỏ không quay lại; gói hết name ⇒ xoá gói); địa danh / tổ chức / thuật ngữ mà nghĩa đang có bằng nghĩa máy ghép ⇒ ghép lại bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc "Ưu tiên tên Latin" của truyện (cập nhật nghĩa, `autoMeanings`, cờ đoán); nghĩa đã tự sửa giữ nguyên; người / họ tộc không ghép lại. Bật Latin mà thiếu mô hình ⇒ lần đó không ghép lại.
 - `LocalNameFilterMeaningComposer`: ghép nghĩa một name lẻ (chụp từ điển của truyện) bằng `LocalNameFilterMeaningBuilder` đường hàng LAC. `LocalNameFilterDraftStore.update`: đọc – sửa – ghi trong một lần giữ khoá, không đổi thì không ghi, `savedAt` giữ nguyên.
 - Nút "?" của mục "Gói tạm chưa lưu" thêm đoạn giải thích việc tự cập nhật. Log `🔎 [LọcName] Cập nhật gói tạm: bỏ N name…, ghép lại M nghĩa…`.
-- Chưa biên dịch (máy Windows), chưa thử trên máy.
-
-## [1.3.1098] - 2026-11-27
-
-### feat: màn duyệt của lọc name local có nút quay lại, giữ danh sách thành gói tạm rồi về trang lọc
-
-- Màn "Duyệt tên riêng & VP" của luồng Lọc name local có nút ‹ ở header (plan 2026-11-27-nghia-ten-tay-huyen mục 5): `ReaderAINameReviewSheet` nhận `onBack` tuỳ chọn ⇒ `HeaderBackButton` + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`, đặt ngoài `NavigationStack`). Luồng AI không truyền ⇒ header như cũ; sheet Sửa từ mở từ màn duyệt nhận lại giá trị `\.sheetPageBack` kế thừa nên không có nút ‹ lạ.
-- Bấm ‹ ⇒ `LocalNameFilterSession.leaveReview`: giữ danh sách đang duyệt thành gói tạm bằng đúng hàm lúc đóng sheet (`keepDraftOnClose`), không toast, rồi về trang đầu "Lọc name local" — sheet không đóng, mục "Gói tạm chưa lưu" hiện ngay (trang đầu nạp lại gói khi hiện ra). Đóng sheet sau đó không ghi gói lần nữa.
 - Chưa biên dịch (máy Windows), chưa thử trên máy.
