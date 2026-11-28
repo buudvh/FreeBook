@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1126] - 2026-11-28
+
+### feat: lọc name local ghi lịch sử lọc theo truyện, mỗi lượt ra màn duyệt một mục, lưu xong đánh dấu đã lưu
+
+Kho Lịch sử lọc của Lọc name local (anh Bửu duyệt mockup + plan "Lịch sử lọc — H1–H5", https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2) — phần lõi, chưa có giao diện:
+
+- `LocalNameFilterHistoryEntry` (Services/Translation/NameFilter/History/): giờ bấm "Bắt đầu lọc", phạm vi (`LocalNameFilterDraft.scopeLabel`, lần Dừng là các chương đã đọc tới, cờ `wasStopped` ⇒ "(dừng)"), số chương, số name lọc được, số name thực lưu + lúc lưu. `id` trùng id gói tạm của màn duyệt lượt đó ⇒ gắn gói, đánh dấu đã lưu, tạo mục cho gói cũ đều tra theo id.
+- `LocalNameFilterHistoryStore`: mỗi truyện một file `name_filter_history/<sha256(bookId)>.json`, **không giới hạn** số mục, đọc ra mới nhất trước; khoá + ghi `.atomic` + cất bản `.broken-…` như kho gói tạm. Đổi nguồn chép (gộp theo id, đích thắng), xoá truyện / đổi nguồn xong xoá (`BookSourceMigrator`, `BookStorageManager.deleteBookSideData` + hàng đợi xoá lại), Dung lượng chung hàng gói tạm (đổi tên "Lọc name (gói tạm, lịch sử)", giữ rawValue `nameFilterDrafts`), Dọn rác bắt file của truyện không còn trong thư viện (`JunkPaths.nameFilterHistoryRoot` + `allowedRoots`, `JunkScanner`). Sao lưu không gói.
+- `LocalNameFilterHistorySnapshot` + `LocalNameFilterHistoryStore.snapshot(bookId:)`: đọc lịch sử + gói tạm cùng lúc; trạng thái **suy ra** — đã lưu / chưa lưu còn gói (mở lại được) / chưa lưu mà gói không còn ("Gói tạm đã bị xoá": bị đẩy ra vì quá 5 gói, bộ cập nhật bỏ hết name…). Gói tạm chưa có mục nào trỏ tới (gói có từ trước bản này) ⇒ tạo mục "chưa lưu" lúc đọc; tra theo id nên không tạo trùng.
+- `removeEntries(ids:)`: xoá gói tạm trước rồi mới tới mục; name đã lưu vào Name / VP riêng không bị đụng. `LocalNameFilterDraftStore.delete(ids:)` xoá nhiều gói một lần ghi.
+- `LocalNameFilterSession+History`: lượt lọc ra màn duyệt (có name) ghi mục; "Dừng" mà bộ lọc kịp đọc hết phạm vi thì không tính là dừng. Lượt không ra name / lỗi / huỷ không ghi mục.
+- `LocalNameFilterSheet.save`: lưu xong ⇒ mục thành "Đã lưu X / Y" (X = `ExtractedEntriesSaveResult.saved`; "Chỉ thêm key mới" chỉ đếm mục mới), mục chưa có thì dựng từ gói của màn duyệt.
+
 ## [1.3.1125] - 2026-11-28
 
 ### fix: hàng Nới đoán tên Latin ở màn Sửa từ có nhãn vàng đoán khi nghĩa hiện tại của name do máy đoán
@@ -471,16 +484,3 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 - Log `🔎 [LọcName] Xong…` thêm "Latin bật · đoán N" / "Latin bật nhưng thiếu mô hình".
 - Bản tham chiếu Python (`name_meaning.py`, `lacpipe.py` cách A, `compare_meaning.py`): 10 truyện giữ y hàng (chữ Hán, loại, số lần, đã có); với VP của anh đổi nghĩa 诡秘之主 239 / 374 (+45 khi bật Latin, 16 đoán), 巫师 24 / 50 (+10), 以一龙之力 15 / 40 (+11), Naruto 50 / 74 (+3), Sư muội 40 / 268, Đấu La 124 / 655. Bộ giải mã Python khớp `Model.predict` của công cụ học 6000 / 6000 mục VP.
 - Chưa biên dịch (máy Windows), chưa thử trên máy.
-
-## [1.3.1096] - 2026-11-27
-
-### feat: màn duyệt name có ô tìm chữ Hán hoặc nghĩa, kiểu sắp chưa có trước và nhãn đoán
-
-Phần màn duyệt của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md` mục 4, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz khung 2). Anh: "danh sách name kết quả đang thiếu ô tìm kiếm"; về thứ tự: không phải "chưa chọn lên trước" mà là name **chưa có** trong VP / Name lên trước (đã yêu cầu nhầm ở 1.3.1092).
-
-- **Ô tìm** ở `ReaderAINameReviewCardView` (cả luồng lọc name local lẫn luồng AI), nằm trên hàng chip loại: khớp chữ Hán hoặc nghĩa, không phân biệt hoa thường, bỏ dấu, `đ` → `d` (gõ "klein" ra Klein, "khac" ra Khắc); kết hợp với chip loại; không còn mục nào ⇒ dòng "Không có name khớp"; nút ⓧ xoá chữ; kéo danh sách là hạ bàn phím (`scrollDismissesKeyboard(.interactively)`), vùng cuộn tự co theo bàn phím.
-- **"Chọn hết" / "Bỏ chọn" áp lên mục đang hiện** (sau ô tìm + chip loại) — trước đây chip loại tính cả danh sách. Hàng gạch của luồng AI vẫn không chọn được. Ô tìm / chip chỉ ẩn hàng: số ở tiêu đề thẻ, số trên chip và nút Lưu vẫn tính cả danh sách; Lưu lưu mọi mục đang chọn, kể cả mục đang bị ẩn.
-- **Kiểu sắp "Chưa có trước"** (`SortMode.notInDictionaryFirst`, chip "Chưa có") thay hẳn "Chưa chọn trước" (`unselectedFirst`, 1.3.1092): name không có badge NE / VP (`!(hasInBookNames || hasInBookVP)`) lên đầu, mỗi nhóm số lần giảm dần, hoà thì chữ Hán tăng dần — vd 炽翎 735 → 赤玄子 43 → 李印生 (NE) 4284 → 穆小鱼 (NE) 1287. Mặc định của luồng lọc local, kể cả khi mở lại gói tạm; menu còn "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu. Luồng AI giữ "Đã chọn trước".
-- **Nhãn "đoán"**: `AIExtractedName.isGuessedMeaning` ⇒ nhãn nhỏ viền vàng cạnh badge loại / NE / VP (`ReaderAINameReviewBadges`). Bấm "Cập nhật" ở màn Sửa từ ⇒ mục mang khoá đích bỏ cờ (`ReaderAINameReviewSheet+Edit.applyEdit`, ghi `names` một lần); chọn một phần thành mục mới thì mục gốc giữ cờ. Cờ đi theo gói tạm qua `AIExtractedName` (Codable).
-- Thẻ tách thành `ReaderAINameReviewCardView+Sorting.swift` (kiểu sắp, menu ⇅) và `+Filtering.swift` (ô tìm, phần đang hiện, "Chọn hết") để giữ dưới 400 dòng.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.

@@ -13,7 +13,8 @@ import Observation
 /// - `.finished`: có name ⇒ tra cờ NE / VP ngoài main (`decorateExtractedNames`, như luồng AI: name đã có trong Name / VP
 ///   của truyện bỏ chọn sẵn) rồi sang màn duyệt + toast; không có ⇒ về bước chọn với dòng báo.
 /// - `.failed(msg)` (kể cả tải model lỗi) ⇒ `.failed`: màn đang lọc hiện lỗi + "Thử lại" (`retry`, chạy lại đúng cấu hình).
-/// Gói tạm khi đóng màn duyệt chưa Lưu: `+Drafts`. Không chạy nền khi sheet đóng, không lên hub (anh Bửu chốt).
+/// Gói tạm khi đóng màn duyệt chưa Lưu: `+Drafts`; mỗi lượt ra màn duyệt ghi một mục Lịch sử lọc: `+History`. Không chạy
+/// nền khi sheet đóng, không lên hub (anh Bửu chốt).
 @MainActor
 @Observable
 final class LocalNameFilterSession {
@@ -100,6 +101,8 @@ final class LocalNameFilterSession {
     @ObservationIgnored private var lastRequest: StartRequest?
     /// Chỉ số các chương của lượt đang chạy, đúng thứ tự đọc.
     @ObservationIgnored private var runChapterIndices: [Int] = []
+    /// Lúc bấm "Bắt đầu lọc" (hoặc "Thử lại") của lượt đang chạy — giờ của mục Lịch sử lọc.
+    @ObservationIgnored private var runStartedAt = Date()
 
     var isActive: Bool {
         phase == .preparing || phase == .running || phase == .stopping
@@ -112,6 +115,7 @@ final class LocalNameFilterSession {
         notice = nil
         failureMessage = nil
         lastRequest = request
+        runStartedAt = Date()
         resetProgress()
         phase = .preparing
         consumeTask = Task { @MainActor [weak self] in
@@ -328,6 +332,12 @@ final class LocalNameFilterSession {
         )
         reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: reviewContext?.autoMeanings)
         savePending = false
+        // "Dừng" mà bộ lọc kịp đọc hết phạm vi thì không tính là dừng.
+        recordHistory(
+            startedAt: runStartedAt,
+            filteredCount: decorated.count,
+            wasStopped: phase == .stopping && snapshot.chaptersRead < totalChapters
+        )
         phase = .review
         AppLogger.shared.log("🔎 [LọcName] Màn duyệt: \(decorated.count) name, \(known) đã có trong Name / VP (bỏ chọn sẵn)")
         ToastManager.shared.show(

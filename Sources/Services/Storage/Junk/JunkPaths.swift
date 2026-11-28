@@ -61,6 +61,8 @@ enum JunkPaths {
     static var annotationsRoot: URL { BookAnnotationStore.directoryURL }
     /// `LocalNameFilterDraftStore.directoryURL` — `<sha256(bookId)>.json` (gói name tạm của Lọc name local).
     static var nameFilterDraftsRoot: URL { LocalNameFilterDraftStore.directoryURL }
+    /// `LocalNameFilterHistoryStore.directoryURL` — `<sha256(bookId)>.json` (Lịch sử lọc của Lọc name local).
+    static var nameFilterHistoryRoot: URL { LocalNameFilterHistoryStore.directoryURL }
     /// `BookSourceChangeJournal.fileURL` (private ở owner) — còn file ⇒ đang có lượt đổi nguồn dở.
     static var sourceChangeJournal: URL {
         applicationSupport
@@ -104,6 +106,6 @@ enum JunkPaths {
     /// Các gốc mà một mục rác được phép nằm trong — mục mang gốc khác bị từ chối lúc xoá.
     static var allowedRoots: [URL] {
         [freeBookRoot, translateRoot, temporaryRoot, booksRoot, comicsRoot, videosRoot, annotationsRoot, nameFilterDraftsRoot,
-         extensionLegacyDirectory]
+         nameFilterHistoryRoot, extensionLegacyDirectory]
     }
 }

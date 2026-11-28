@@ -26,7 +26,8 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
     case playlists
     /// Dấu trang + ghi chú của Reader (`annotations/`, 1.3.1040).
     case annotations
-    /// Gói name tạm của "Lọc name local" (`name_filter_drafts/`, `LocalNameFilterDraftStore`).
+    /// Gói name tạm + Lịch sử lọc của "Lọc name local" (`name_filter_drafts/` — `LocalNameFilterDraftStore`,
+    /// `name_filter_history/` — `LocalNameFilterHistoryStore`). Giữ rawValue để bản đo đã lưu vẫn đọc được.
     case nameFilterDrafts
     case exports
     case logs
@@ -59,7 +60,7 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .library: return "Thư viện (danh sách truyện)"
         case .playlists: return "Playlist"
         case .annotations: return "Ghi chú & dấu trang"
-        case .nameFilterDrafts: return "Gói name tạm (lọc name)"
+        case .nameFilterDrafts: return "Lọc name (gói tạm, lịch sử)"
         case .exports: return "File xuất (TXT, EPUB…)"
         case .logs: return "Nhật ký (log)"
         case .checkReports: return "Báo cáo kiểm tra"
@@ -116,7 +117,9 @@ public enum StorageUsageCategory: String, CaseIterable, Sendable, Identifiable, 
         case .library: return [.filesWithPrefix(directory: support, prefix: "library.db")]
         case .playlists: return [dir(PlaylistStore.directoryName)]
         case .annotations: return [dir(BookAnnotationStore.directoryName)]
-        case .nameFilterDrafts: return [dir(LocalNameFilterDraftStore.directoryName)]
+        case .nameFilterDrafts: return [
+            dir(LocalNameFilterDraftStore.directoryName), dir(LocalNameFilterHistoryStore.directoryName)
+        ]
         case .exports: return [.directory(ExportFileNaming.exportsDirectoryURL())]
         case .logs: return [.filesWithPrefix(directory: support, prefix: "app_logs")]
         case .checkReports: return CheckReportKind.allCases.map { .directory($0.directoryURL) }

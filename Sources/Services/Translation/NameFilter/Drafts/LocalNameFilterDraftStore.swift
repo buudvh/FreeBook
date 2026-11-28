@@ -8,6 +8,9 @@ import Foundation
 /// Đi theo truyện: đổi nguồn (`BookSourceMigrator` chép / xoá), Dung lượng (`StorageUsageCategory.nameFilterDrafts`),
 /// Dọn rác (file của truyện không còn trong thư viện, `JunkScanner.deletedBookCandidates`). Sao lưu **không** gói (dữ liệu
 /// tạm). Ghi `.atomic`; hết gói ⇒ xoá file. File đọc lỗi ⇒ đổi tên sang `.broken-<thời điểm>.json` rồi coi như rỗng.
+///
+/// Mỗi gói là gói của một lần lọc trong **Lịch sử lọc** (`LocalNameFilterHistoryStore`, cùng `id`): gói bị bỏ vì quá 5 gói
+/// thì lần lọc đó tự hiện "Gói tạm đã bị xoá" (`LocalNameFilterHistorySnapshot.status`) — không cần báo gì từ đây.
 enum LocalNameFilterDraftStore {
     static let directoryName = "name_filter_drafts"
     static let maxDraftsPerBook = 5
@@ -69,14 +72,21 @@ enum LocalNameFilterDraftStore {
         return Array(changed.sorted { $0.savedAt > $1.savedAt }.prefix(maxDraftsPerBook))
     }
 
-    /// Xoá một gói (lưu xong / vuốt Xoá). Không có gói đó ⇒ không ghi gì.
+    /// Xoá một gói (lưu xong). Không có gói đó ⇒ không ghi gì.
     static func delete(id: UUID, bookId: String) {
-        guard !bookId.isEmpty else { return }
+        delete(ids: [id], bookId: bookId)
+    }
+
+    /// Xoá các gói (xoá lần lọc ở Lịch sử lọc — `LocalNameFilterHistoryStore.removeEntries`). Không có gói nào trong số đó
+    /// ⇒ không ghi gì.
+    static func delete(ids: Set<UUID>, bookId: String) {
+        guard !bookId.isEmpty, !ids.isEmpty else { return }
         lock.lock()
         defer { lock.unlock() }
         let drafts = loadLocked(bookId: bookId)
-        guard drafts.contains(where: { $0.id == id }) else { return }
-        saveLocked(drafts.filter { $0.id != id }, bookId: bookId)
+        let kept = drafts.filter { !ids.contains($0.id) }
+        guard kept.count != drafts.count else { return }
+        saveLocked(kept, bookId: bookId)
     }
 
     /// Đổi nguồn: gộp gói của truyện cũ vào truyện đích (trùng `id` ⇒ giữ của đích), rồi giữ 5 gói ghi gần nhất. Không xoá

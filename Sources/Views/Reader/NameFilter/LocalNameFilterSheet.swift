@@ -223,6 +223,14 @@ struct LocalNameFilterSheet: View {
                 if let result {
                     if let pending {
                         LocalNameFilterDraftStore.delete(id: pending.draft.id, bookId: pending.bookId)
+                        // Lịch sử lọc: lần lọc của màn duyệt này thành "Đã lưu X / Y" (X = số name thực lưu).
+                        LocalNameFilterHistoryStore.markSaved(
+                            id: pending.draft.id,
+                            savedCount: result.saved,
+                            at: Date(),
+                            fallback: pending.draft,
+                            bookId: pending.bookId
+                        )
                     }
                     let toast = ReaderAINameReviewSheet.savedToast(result, targetName: targetName)
                     ToastManager.shared.show(message: toast.message, type: toast.type)

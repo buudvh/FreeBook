@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1096] - 2026-11-27
+
+### feat: màn duyệt name có ô tìm chữ Hán hoặc nghĩa, kiểu sắp chưa có trước và nhãn đoán
+
+Phần màn duyệt của đợt "nghĩa tên tây huyễn" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-nghia-ten-tay-huyen.md` mục 4, mockup https://claude.ai/artifact/UjY2CA9eEaThdo96xSgoiz khung 2). Anh: "danh sách name kết quả đang thiếu ô tìm kiếm"; về thứ tự: không phải "chưa chọn lên trước" mà là name **chưa có** trong VP / Name lên trước (đã yêu cầu nhầm ở 1.3.1092).
+
+- **Ô tìm** ở `ReaderAINameReviewCardView` (cả luồng lọc name local lẫn luồng AI), nằm trên hàng chip loại: khớp chữ Hán hoặc nghĩa, không phân biệt hoa thường, bỏ dấu, `đ` → `d` (gõ "klein" ra Klein, "khac" ra Khắc); kết hợp với chip loại; không còn mục nào ⇒ dòng "Không có name khớp"; nút ⓧ xoá chữ; kéo danh sách là hạ bàn phím (`scrollDismissesKeyboard(.interactively)`), vùng cuộn tự co theo bàn phím.
+- **"Chọn hết" / "Bỏ chọn" áp lên mục đang hiện** (sau ô tìm + chip loại) — trước đây chip loại tính cả danh sách. Hàng gạch của luồng AI vẫn không chọn được. Ô tìm / chip chỉ ẩn hàng: số ở tiêu đề thẻ, số trên chip và nút Lưu vẫn tính cả danh sách; Lưu lưu mọi mục đang chọn, kể cả mục đang bị ẩn.
+- **Kiểu sắp "Chưa có trước"** (`SortMode.notInDictionaryFirst`, chip "Chưa có") thay hẳn "Chưa chọn trước" (`unselectedFirst`, 1.3.1092): name không có badge NE / VP (`!(hasInBookNames || hasInBookVP)`) lên đầu, mỗi nhóm số lần giảm dần, hoà thì chữ Hán tăng dần — vd 炽翎 735 → 赤玄子 43 → 李印生 (NE) 4284 → 穆小鱼 (NE) 1287. Mặc định của luồng lọc local, kể cả khi mở lại gói tạm; menu còn "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu. Luồng AI giữ "Đã chọn trước".
+- **Nhãn "đoán"**: `AIExtractedName.isGuessedMeaning` ⇒ nhãn nhỏ viền vàng cạnh badge loại / NE / VP (`ReaderAINameReviewBadges`). Bấm "Cập nhật" ở màn Sửa từ ⇒ mục mang khoá đích bỏ cờ (`ReaderAINameReviewSheet+Edit.applyEdit`, ghi `names` một lần); chọn một phần thành mục mới thì mục gốc giữ cờ. Cờ đi theo gói tạm qua `AIExtractedName` (Codable).
+- Thẻ tách thành `ReaderAINameReviewCardView+Sorting.swift` (kiểu sắp, menu ⇅) và `+Filtering.swift` (ô tìm, phần đang hiện, "Chọn hết") để giữ dưới 400 dòng.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1095] - 2026-11-27
 
 ### refactor: hợp đồng lọc name local có cờ nghĩa do máy đoán, công tắc ưu tiên tên Latin và công cụ học mô hình đoán tên

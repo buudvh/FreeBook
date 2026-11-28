@@ -87,9 +87,9 @@ enum JunkScanner {
             }
         }
 
-        // Dấu trang + ghi chú (`BookAnnotationStore`, 1.3.1040) và gói name tạm của Lọc name local
-        // (`LocalNameFilterDraftStore`): `<sha256(bookId)>.json`, cùng hàm băm với phim / comic.
-        for root in [JunkPaths.annotationsRoot, JunkPaths.nameFilterDraftsRoot] {
+        // Dấu trang + ghi chú (`BookAnnotationStore`, 1.3.1040), gói name tạm và Lịch sử lọc của Lọc name local
+        // (`LocalNameFilterDraftStore`, `LocalNameFilterHistoryStore`): `<sha256(bookId)>.json`, cùng hàm băm với phim / comic.
+        for root in [JunkPaths.annotationsRoot, JunkPaths.nameFilterDraftsRoot, JunkPaths.nameFilterHistoryRoot] {
             result += hashedJSONCandidates(in: root, owned: mediaHashes, now: now)
         }
         return result
