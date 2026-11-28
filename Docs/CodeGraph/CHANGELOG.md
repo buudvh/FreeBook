@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1114] - 2026-11-28
+
+### feat: màn Sửa từ có hàng Tiền tố, Hậu tố mở vừa khít nội dung thay vì nửa màn
+
+Mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2, mục C10 (sheet Sửa từ có hai hàng Tiền tố / Hậu tố mở
+vừa khít nội dung, tối đa toàn màn; luồng AI và từ điển giữ nửa màn).
+
+- `DictEntryEditSheet` chế độ từ điển có `accessoryRows` (màn duyệt Lọc name local, mọi name trừ họ tộc) ⇒ bộ nấc
+  `[.height(vừa khít), .large]` với `presentationDetents(_:selection:)`: mở ở nấc cao đúng từ tiêu đề tới nút Cập nhật +
+  hàng tra cứu ngoài, vẫn kéo lên toàn màn được; nội dung dài hơn màn thì hệ thống kẹp ở toàn màn, cuộn như cũ.
+- Đo bằng `GeometryReader` + `PreferenceKey` (iOS 17) ở `DictEntryEditSheet+FittedDetent`: sheet mở ở nấc tạm đã biết
+  giá trị (420pt) ⇒ số đo vùng cuộn đầu tiên cho phần đầu sheet ngoài vùng cuộn (tính một lần rồi giữ, ngoài 20…140pt ⇒
+  56pt); nấc vừa khít = phần đầu + chiều cao tự nhiên của nội dung trong `ScrollView`. Lần khớp đầu lên hoặc xuống, sau
+  đó chỉ nâng (chip / token / hàng phụ về muộn), không hạ ⇒ gõ chữ, bàn phím hiện / ẩn không làm sheet giật. Nấc vừa
+  khít đổi chỉ dời lựa chọn khi đang ở nấc vừa khít cũ; đã kéo lên `.large` thì giữ.
+- Luồng AI, từ điển, Pronouns, chế độ danh sách giữ nguyên bộ nấc cũ (`.medium` + `.large`, danh sách chỉ `.large`).
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1113] - 2026-11-28
 
 ### feat: màn duyệt tên riêng có nút ▼ thay chữ Lưu, menu thêm Xuất file các mục đang tích
@@ -442,10 +461,3 @@ Phần giao diện của đợt "Lọc name local bằng LAC" (plan `Docs/Plans/
 ## [1.3.1087] - 2026-11-27
 
 ### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức
-
-## [1.3.NNN] - 2026-11-27
-### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức
-- Màn "Đuôi địa danh & tông môn" đổi tên thành "Đuôi địa danh, tổ chức, thuật ngữ" (plan `2026-11-27-loc-name-lac.md` mục D, mockup LAC khung 4); tab lọc thành Tất cả / Địa danh / Tổ chức / Thuật ngữ.
-- Nhãn loại của đuôi lấy từ nhóm name (`SuffixKind.category.label`): `sect` hiện là "Tổ chức", thêm "Thuật ngữ" (`SuffixKind.term`); ô Loại ở màn Sửa từ của đuôi có ba lựa chọn.
-- Dòng "Ví dụ" của màn Sửa từ đổi theo loại: thuật ngữ dùng 五气 ⇒ "Ví dụ: 五气丹 → Ngũ Khí đan", địa danh / tổ chức giữ 江海.
-- Lời giải thích "?" và dòng danh sách trống nói cả tổ chức / thuật ngữ.

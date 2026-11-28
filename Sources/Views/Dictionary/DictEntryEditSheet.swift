@@ -81,6 +81,8 @@ struct DictEntryEditSheet: View {
     @State private var tokenGeneration = 0
     @State private var selectionGeneration = 0
     @State private var hasAppeared = false
+    /// Nấc vừa khít khi có hàng phụ (`+FittedDetent`).
+    @State var fitting = FittedDetent()
 
     init(
         originalKey: String,
@@ -141,8 +143,10 @@ struct DictEntryEditSheet: View {
                     .background(Color.clear.contentShape(Rectangle()).onTapGesture {
                         KeyboardDismissPreference.dismissOnTapOutsideIfEnabled()
                     })
+                    .dictEntryEditMeasuredHeight(FittedContentHeightKey.self) { fittedContentHeightDidChange($0) }
             }
             .scrollDismissesKeyboard(.interactively)
+            .dictEntryEditMeasuredHeight(FittedViewportHeightKey.self) { fittedViewportHeightDidChange($0) }
             .pageTitle(isAddingListEntry ? "Thêm từ" : "Sửa từ")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { headerTrailingView }
@@ -164,9 +168,9 @@ struct DictEntryEditSheet: View {
             }
         }
         .confirmDiscardOnSwipe(isDirty: isDirty)
-        // Danh sách (đuôi, "Không phải name", họ, token): mở cao hết cỡ như form cũ — ô chữ gốc tự focus, nấc nửa màn
-        // để bàn phím che nút "Thêm" và các hàng phụ (Loại / Nghĩa đứng).
-        .presentationDetents(listMode == nil ? Set<PresentationDetent>([.medium, .large]) : [.large])
+        // Có hàng phụ (lọc local) ⇒ nấc vừa khít nội dung; danh sách chỉ `.large` (ô chữ gốc tự focus, nấc nửa màn để bàn
+        // phím che nút "Thêm" và các hàng phụ); còn lại `.medium` + `.large` — `+FittedDetent`.
+        .dictEntryEditDetents(fits: usesFittedDetent, isListMode: listMode != nil, fitting: $fitting)
         .presentationDragIndicator(.visible)
     }
 

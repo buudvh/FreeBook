@@ -2,6 +2,13 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.NNN] - 2026-11-27
+### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức
+- Màn "Đuôi địa danh & tông môn" đổi tên thành "Đuôi địa danh, tổ chức, thuật ngữ" (plan `2026-11-27-loc-name-lac.md` mục D, mockup LAC khung 4); tab lọc thành Tất cả / Địa danh / Tổ chức / Thuật ngữ.
+- Nhãn loại của đuôi lấy từ nhóm name (`SuffixKind.category.label`): `sect` hiện là "Tổ chức", thêm "Thuật ngữ" (`SuffixKind.term`); ô Loại ở màn Sửa từ của đuôi có ba lựa chọn.
+- Dòng "Ví dụ" của màn Sửa từ đổi theo loại: thuật ngữ dùng 五气 ⇒ "Ví dụ: 五气丹 → Ngũ Khí đan", địa danh / tổ chức giữ 江海.
+- Lời giải thích "?" và dòng danh sách trống nói cả tổ chức / thuật ngữ.
+
 ## [1.3.1086] - 2026-11-27
 
 ### feat: danh sách đuôi lọc name local thêm loại Thuật ngữ, tắt sẵn 关 và 花
