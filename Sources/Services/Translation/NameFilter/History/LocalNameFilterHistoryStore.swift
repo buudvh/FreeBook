@@ -52,6 +52,20 @@ enum LocalNameFilterHistoryStore {
         saveLocked(entries, bookId: bookId)
     }
 
+    /// Sửa mục `id` trong một lần giữ khoá (lượt lọc lấy xong danh sách chương / kết thúc — `LocalNameFilterSession+History`).
+    /// Không có mục đó ⇒ không ghi gì. `transform` không được gọi hàm khác của store (khoá không lồng được).
+    static func update(id: UUID, bookId: String, _ transform: (inout LocalNameFilterHistoryEntry) -> Void) {
+        guard !bookId.isEmpty else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        var entries = loadLocked(bookId: bookId)
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let before = entries[index]
+        transform(&entries[index])
+        guard entries[index] != before else { return }
+        saveLocked(entries, bookId: bookId)
+    }
+
     /// Lưu xong màn duyệt của lượt `id`: ghi số name thực lưu + lúc lưu. Không có mục đó (ghi mục lỗi lúc lọc xong) ⇒ dựng
     /// mục từ `fallback` (gói của màn duyệt) rồi đánh dấu, để lần lọc này vẫn có trong lịch sử.
     static func markSaved(

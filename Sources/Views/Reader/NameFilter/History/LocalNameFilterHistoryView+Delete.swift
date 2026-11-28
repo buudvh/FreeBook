@@ -115,7 +115,7 @@ extension LocalNameFilterHistoryView {
             message = "Gói tạm \(draft.names.count) name chưa lưu của lần này cũng bị xoá."
         case .saved:
             message = "Chỉ xoá dòng lịch sử, name đã lưu vào Name / VP riêng giữ nguyên."
-        case .draftGone:
+        case .draftGone, .noNames, .failed, .cancelled, .interrupted, .running:
             message = "Chỉ xoá dòng lịch sử."
         }
         deleteRequest = DeleteRequest(

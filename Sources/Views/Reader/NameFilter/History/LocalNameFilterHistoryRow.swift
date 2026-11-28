@@ -5,11 +5,17 @@ import SwiftUI
 /// - đã lưu ⇒ "✓ Đã lưu X / Y" (✓ xanh) — chỉ xem, không chevron;
 /// - chưa lưu, còn gói ⇒ "● Chưa lưu · lọc được Y" (● cam) + chevron — chạm mở lại màn duyệt;
 /// - chưa lưu, gói đã bị xoá ⇒ "Chưa lưu · lọc được Y · Gói tạm đã bị xoá", chữ mờ, không chevron.
+/// - lần không ra màn duyệt (mockup H2 bản 8 — nền sẫm `inactiveFill` do trang gắn, không chevron, chạm không mở gì):
+///   "— Không ra name nào", "✕ Lỗi: <lý do ngắn>" (đỏ, `shortFailureReason`), "⊘ Đã huỷ" (phạm vi kèm "(huỷ)"),
+///   "⚠ Bị ngắt — app thoát lúc đang lọc" (cam), "Đang lọc…".
 /// Chế độ chọn nhiều (H5): vòng tích ở đầu hàng, không chevron. Chạm / vuốt do trang lo (`LocalNameFilterHistoryView`).
 ///
 /// Giờ / ngày ghi kiểu 24 giờ cố định (không theo kiểu giờ của máy) — các hàm `…Text` dùng chung cho tiêu đề nhóm ngày,
 /// hàng "Lịch sử lọc" của sheet và hộp hỏi xoá.
 struct LocalNameFilterHistoryRow: View {
+    /// Nền sẫm của lần không ra màn duyệt (thay ô mờ `AppGlassSheetModifier.rowFill` của sheet kính).
+    static let inactiveFill = Color.black.opacity(0.28)
+
     let entry: LocalNameFilterHistoryEntry
     let status: LocalNameFilterHistorySnapshot.Status
     let isSelecting: Bool
@@ -63,7 +69,31 @@ struct LocalNameFilterHistoryRow: View {
         case .draftGone:
             return Text(verbatim: "Chưa lưu · lọc được \(entry.filteredCount) · Gói tạm đã bị xoá")
                 .foregroundColor(.secondary)
+        case .noNames:
+            return Text(verbatim: "— Không ra name nào").foregroundColor(.secondary)
+        case .failed(let message):
+            return Text(verbatim: "✕ Lỗi: \(Self.shortFailureReason(message))").foregroundColor(.red)
+        case .cancelled:
+            return Text(verbatim: "⊘ Đã huỷ").foregroundColor(.secondary)
+        case .interrupted:
+            return Text(verbatim: "⚠ Bị ngắt — app thoát lúc đang lọc").foregroundColor(.orange)
+        case .running:
+            return Text(verbatim: "Đang lọc…").foregroundColor(.secondary)
         }
+    }
+
+    /// Lý do ngắn của lời lỗi bộ lọc: phần trước dấu ":" / " — " đầu tiên (bỏ chi tiết kỹ thuật), chữ đầu viết thường —
+    /// "Không tải được model nhận diện tên: …" ⇒ "không tải được model nhận diện tên". Rỗng ⇒ "không rõ".
+    static func shortFailureReason(_ message: String) -> String {
+        var reason = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        for separator in [": ", " — "] {
+            if let range = reason.range(of: separator) {
+                reason = String(reason[..<range.lowerBound])
+            }
+        }
+        reason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = reason.first else { return "không rõ" }
+        return first.lowercased() + reason.dropFirst()
     }
 
     // MARK: - Giờ / ngày (24 giờ cố định)

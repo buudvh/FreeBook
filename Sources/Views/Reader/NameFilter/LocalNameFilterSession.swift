@@ -13,8 +13,8 @@ import Observation
 /// - `.finished`: có name ⇒ tra cờ NE / VP ngoài main (`decorateExtractedNames`, như luồng AI: name đã có trong Name / VP
 ///   của truyện bỏ chọn sẵn) rồi sang màn duyệt + toast; không có ⇒ về bước chọn với dòng báo.
 /// - `.failed(msg)` (kể cả tải model lỗi) ⇒ `.failed`: màn đang lọc hiện lỗi + "Thử lại" (`retry`, chạy lại đúng cấu hình).
-/// Gói tạm khi đóng màn duyệt chưa Lưu: `+Drafts`; mỗi lượt ra màn duyệt ghi một mục Lịch sử lọc: `+History`. Không chạy
-/// nền khi sheet đóng, không lên hub (anh Bửu chốt).
+/// Gói tạm khi đóng màn duyệt chưa Lưu: `+Drafts`; mỗi lần bấm "Bắt đầu lọc" ghi một mục Lịch sử lọc, kết thúc thế nào
+/// cũng cập nhật: `+History`. Không chạy nền khi sheet đóng, không lên hub (anh Bửu chốt).
 @MainActor
 @Observable
 final class LocalNameFilterSession {
@@ -100,9 +100,9 @@ final class LocalNameFilterSession {
     @ObservationIgnored private var previousNames: [LocalNameFilter.Name]?
     @ObservationIgnored private var lastRequest: StartRequest?
     /// Chỉ số các chương của lượt đang chạy, đúng thứ tự đọc.
-    @ObservationIgnored private var runChapterIndices: [Int] = []
-    /// Lúc bấm "Bắt đầu lọc" (hoặc "Thử lại") của lượt đang chạy — giờ của mục Lịch sử lọc.
-    @ObservationIgnored private var runStartedAt = Date()
+    @ObservationIgnored private(set) var runChapterIndices: [Int] = []
+    /// Mục Lịch sử lọc của lượt đang chạy (`+History`); `nil` khi đã ghi kết thúc.
+    @ObservationIgnored var historyRun: HistoryRun?
 
     var isActive: Bool {
         phase == .preparing || phase == .running || phase == .stopping
@@ -115,8 +115,8 @@ final class LocalNameFilterSession {
         notice = nil
         failureMessage = nil
         lastRequest = request
-        runStartedAt = Date()
         resetProgress()
+        beginHistory(request)
         phase = .preparing
         consumeTask = Task { @MainActor [weak self] in
             let chapters = await AIBookDataInspector.shared.fetchDownloadedChapters(
@@ -131,6 +131,7 @@ final class LocalNameFilterSession {
             }
             self.totalChapters = chapters.count
             self.runChapterIndices = chapters.map(\.index)
+            self.setHistoryPlannedScope(chapterIndices: self.runChapterIndices)
             let run = LocalNameFilterRun.start(
                 bookId: request.bookId,
                 chapters: chapters,
@@ -210,10 +211,12 @@ final class LocalNameFilterSession {
     func stop() {
         switch phase {
         case .preparing:
+            endHistory(.noNames, chaptersRead: 0, wasStopped: true)
             cancel()
         case .running:
             switch modelStep {
             case .downloading, .loading:
+                endHistory(.noNames, chaptersRead: 0, wasStopped: true)
                 cancel()
                 notice = .info("Đã dừng khi đang chuẩn bị model nhận diện tên")
                 return
@@ -234,6 +237,7 @@ final class LocalNameFilterSession {
         run?.cancel()
         run = nil
         if isActive {
+            endHistory(.cancelled, chaptersRead: chaptersRead)
             phase = .setup
             resetProgress()
         }
@@ -281,7 +285,10 @@ final class LocalNameFilterSession {
 
     private func finish(_ snapshot: LocalNameFilter.Snapshot) async {
         run = nil
+        // "Dừng" mà bộ lọc kịp đọc hết phạm vi thì không tính là dừng.
+        let wasStopped = phase == .stopping && snapshot.chaptersRead < totalChapters
         guard let request = lastRequest, !snapshot.names.isEmpty else {
+            endHistory(.noNames, chaptersRead: snapshot.chaptersRead, wasStopped: wasStopped)
             consumeTask = nil
             phase = .setup
             resetProgress()
@@ -317,7 +324,8 @@ final class LocalNameFilterSession {
         latestReviewNames = decorated
         reviewContext = ReviewContext(
             bookId: bookId,
-            draftId: UUID(),
+            // = id mục Lịch sử lọc của lượt ⇒ gói tạm của màn duyệt này gắn đúng mục.
+            draftId: historyRun?.id ?? UUID(),
             filteredAt: Date(),
             scopeLabel: LocalNameFilterDraft.scopeLabel(chapterNumbers: Array(numbers)),
             chapterCount: snapshot.chaptersRead,
@@ -332,12 +340,7 @@ final class LocalNameFilterSession {
         )
         reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: reviewContext?.autoMeanings)
         savePending = false
-        // "Dừng" mà bộ lọc kịp đọc hết phạm vi thì không tính là dừng.
-        recordHistory(
-            startedAt: runStartedAt,
-            filteredCount: decorated.count,
-            wasStopped: phase == .stopping && snapshot.chaptersRead < totalChapters
-        )
+        endHistory(.reviewed(filteredCount: decorated.count), chaptersRead: snapshot.chaptersRead, wasStopped: wasStopped)
         phase = .review
         AppLogger.shared.log("🔎 [LọcName] Màn duyệt: \(decorated.count) name, \(known) đã có trong Name / VP (bỏ chọn sẵn)")
         ToastManager.shared.show(
@@ -348,6 +351,7 @@ final class LocalNameFilterSession {
 
     /// Lỗi của lượt lọc (bộ lọc phát `.failed`, kể cả tải model lỗi) ⇒ màn lỗi có "Thử lại".
     private func failRun(_ message: String) {
+        endHistory(.failed(message), chaptersRead: chaptersRead)
         run = nil
         consumeTask = nil
         resetProgress()
@@ -357,6 +361,7 @@ final class LocalNameFilterSession {
 
     /// Lỗi trước khi bộ lọc chạy (phạm vi không có chương) — "Thử lại" vô ích ⇒ về bước chọn với dòng báo.
     private func failToSetup(_ message: String) {
+        endHistory(.failed(message), chaptersRead: 0)
         run = nil
         consumeTask = nil
         phase = .setup

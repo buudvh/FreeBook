@@ -6,8 +6,9 @@ import SwiftUI
 ///
 /// - **H2**: nhóm theo ngày ("Hôm nay · 28/11", "27/11"…), mới nhất trên cùng, không giới hạn số lần; hàng
 ///   `LocalNameFilterHistoryRow`. Chạm lần chưa lưu còn gói ⇒ `onOpenDraft` (sheet mở lại màn duyệt như chạm gói tạm
-///   trước đây — `LocalNameFilterSession.openDraft`); lần đã lưu chỉ xem; gói đã bị xoá ⇒ mờ, không mở được. Vuốt trái ⇒
-///   Xoá.
+///   trước đây — `LocalNameFilterSession.openDraft`); lần đã lưu chỉ xem; gói đã bị xoá ⇒ mờ, không mở được. Lần không ra
+///   màn duyệt (bản 8: không ra name nào, lỗi, đã huỷ, bị ngắt) ⇒ nền sẫm, chạm không mở gì, vẫn xoá / chọn nhiều được,
+///   tính vào "N lần" (không vào "M chưa lưu"). Vuốt trái ⇒ Xoá.
 /// - **H3 / H4 / H5** (`+Delete`): mọi lối xoá đều hỏi lại; ⋯ mở ngăn kéo "Chọn nhiều để xoá" / "Dọn dẹp tất cả"; chế độ
 ///   chọn nhiều kiểu Kệ (header ✕ + "Đã chọn N" + "Chọn tất cả", chạm hàng để tích, thanh đáy "Xoá (N)").
 ///
@@ -26,7 +27,8 @@ struct LocalNameFilterHistoryView: View {
 
     static var helpParagraphs: [LocalizedStringKey] {
         [
-            "Mỗi lần bấm \"Bắt đầu lọc\" ra màn duyệt ghi một dòng: giờ bắt đầu · phạm vi chương đã đọc (bấm \"Dừng\" thì là các chương đã lọc tới, kèm \"(dừng)\"). Lịch sử không giới hạn, mới nhất trên cùng.",
+            "Mỗi lần bấm \"Bắt đầu lọc\" ghi một dòng: giờ bắt đầu · phạm vi chương đã đọc (bấm \"Dừng\" thì là các chương đã lọc tới, kèm \"(dừng)\"). Lịch sử không giới hạn, mới nhất trên cùng.",
+            "Lần **không ra màn duyệt** có nền sẫm, chạm không mở gì: không ra name nào, lỗi (kèm lý do), đã huỷ (đóng sheet lúc đang lọc — phạm vi là các chương đã đọc tới, kèm \"(huỷ)\"), bị ngắt (app thoát lúc đang lọc).",
             "**Chưa lưu**: đóng màn duyệt mà chưa bấm Lưu (kể cả sau \"Dừng\") thì danh sách đang duyệt được giữ thành gói tạm, gồm cả ô đã chọn / bỏ chọn và nghĩa đã sửa — chạm dòng để mở lại đúng màn duyệt đó. Mỗi truyện giữ \(LocalNameFilterDraftStore.maxDraftsPerBook) gói ghi gần nhất; gói cũ hơn bị xoá, dòng của nó mờ đi.",
             "Gói tự cập nhật mỗi lần mở trang: name nằm trong \"Không phải name\" bị bỏ; name còn nghĩa máy ghép (trừ họ tộc) thì ghép lại theo danh sách hậu tố / tiền tố hiện tại. Nghĩa đã tự sửa giữ nguyên.",
             "**Đã lưu X / Y**: đã lưu X trong Y name lọc được — dòng này chỉ để xem. Xoá một lần lọc (vuốt trái, hoặc ⋯ › Chọn nhiều để xoá) xoá luôn gói tạm chưa lưu của lần đó; name đã lưu vào Name / VP riêng giữ nguyên."
@@ -37,6 +39,7 @@ struct LocalNameFilterHistoryView: View {
     /// Chạm lần lọc chưa lưu còn gói tạm ⇒ sheet mở lại màn duyệt của gói đó.
     let onOpenDraft: (LocalNameFilterDraft) -> Void
 
+    @Environment(\.isGlassSheet) private var isGlassSheet
     @State var snapshot = LocalNameFilterHistorySnapshot.empty
     @State var isLoaded = false
     @State var showingMenu = false
@@ -88,7 +91,7 @@ struct LocalNameFilterHistoryView: View {
         List { Group {
             if isLoaded && snapshot.isEmpty {
                 Section {
-                    Text("Chưa có lần lọc nào. Mỗi lần bấm \"Bắt đầu lọc\" ra màn duyệt sẽ ghi một dòng ở đây.")
+                    Text("Chưa có lần lọc nào. Mỗi lần bấm \"Bắt đầu lọc\" sẽ ghi một dòng ở đây.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 } header: {
@@ -124,6 +127,9 @@ struct LocalNameFilterHistoryView: View {
             isSelecting: isSelecting,
             isSelected: selection?.contains(entry.id) == true
         )
+        // Lần không ra màn duyệt (không ra name, lỗi, huỷ, bị ngắt): nền sẫm (mockup H2 bản 8). Ô tự đặt nền thắng ô mờ
+        // `glassSheetRows` của cả danh sách ⇒ hàng thường đặt lại đúng ô mờ đó.
+        .listRowBackground(rowBackground(for: status))
         // Không bọc cả hàng trong `Button` (luật màn danh sách) — chạm thân hàng.
         .contentShape(Rectangle())
         .onTapGesture { tap(entry, status: status) }
@@ -141,7 +147,13 @@ struct LocalNameFilterHistoryView: View {
         }
     }
 
-    /// Chọn nhiều ⇒ tích / bỏ tích (không mở gói); thường ⇒ chỉ lần chưa lưu còn gói mới mở.
+    private func rowBackground(for status: LocalNameFilterHistorySnapshot.Status) -> Color? {
+        if status.isInactive { return LocalNameFilterHistoryRow.inactiveFill }
+        return isGlassSheet ? AppGlassSheetModifier.rowFill : nil
+    }
+
+    /// Chọn nhiều ⇒ tích / bỏ tích (không mở gói); thường ⇒ chỉ lần chưa lưu còn gói mới mở (đã lưu, gói đã bị xoá, lần
+    /// không ra màn duyệt: chạm không làm gì).
     private func tap(_ entry: LocalNameFilterHistoryEntry, status: LocalNameFilterHistorySnapshot.Status) {
         if var current = selection {
             if current.contains(entry.id) {

@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1130] - 2026-11-28
+
+### feat: lịch sử lọc name local ghi cả lần không ra name, lỗi, huỷ và lần bị ngắt khi app thoát lúc đang lọc
+
+Lịch sử lọc ghi **mọi** lần bấm "Bắt đầu lọc" (anh Bửu duyệt mockup bản 8, khung H2 có 4 hàng nền sẫm, https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2):
+
+- `LocalNameFilterHistoryEntry` thêm `outcome` (`running` / `reviewed` / `noNames` / `failed` / `cancelled`), `failureMessage`, `launchId`; phạm vi, số chương, số lọc được đổi thành `var`. File của bản trước (không có `outcome`) đọc ra `reviewed` (`init(from:)` đọc kiểu "có thì lấy"). `currentLaunchId` = mốc của lần chạy app.
+- `LocalNameFilterSession+History`: bấm "Bắt đầu lọc" / "Thử lại" ⇒ ghi ngay mục "đang lọc" kèm mốc lần chạy app; lấy xong danh sách chương ⇒ ghi phạm vi định lọc; kết thúc cập nhật đúng một lần (`endHistory`): ra màn duyệt (id mục = id gói tạm như trước), không ra name nào (kể cả "Dừng" lúc đang lấy chương / chuẩn bị model ⇒ "0 chương (dừng)"), lỗi (lời lỗi đầy đủ, giữ phạm vi định lọc; phạm vi không có chương đã tải ⇒ "0 chương"), đã huỷ (đóng sheet lúc đang lọc, phạm vi = các chương đã đọc tới + "(huỷ)"). `LocalNameFilterHistoryStore.update(id:)` sửa một mục trong một lần giữ khoá.
+- `LocalNameFilterHistorySnapshot.Status` thêm `running`, `interrupted` (mục còn "đang lọc" mà mốc khác lần chạy app này ⇒ app thoát / chết lúc đang lọc), `noNames`, `failed`, `cancelled`; `isInactive` cho cả năm. "M chưa lưu" chỉ tính lần ra màn duyệt.
+- Trang Lịch sử lọc: hàng "— Không ra name nào", "✕ Lỗi: <lý do ngắn>" (chữ đỏ; phần trước dấu ":" / " — " của lời lỗi, chữ đầu viết thường — vd "không tải được model nhận diện tên"), "⊘ Đã huỷ", "⚠ Bị ngắt — app thoát lúc đang lọc" (cam); nền sẫm (`LocalNameFilterHistoryRow.inactiveFill`, hàng thường đặt lại đúng ô mờ của sheet kính), không chevron, chạm không mở gì, vẫn vuốt xoá / chọn nhiều / dọn dẹp tất cả được (hỏi "Chỉ xoá dòng lịch sử."), tính vào "N lần". Giải thích "?" thêm đoạn về lần không ra màn duyệt.
+
 ## [1.3.1129] - 2026-11-28
 
 ### feat: danh sách Hậu tố, Tiền tố và Không phải name của lọc name local xuất được ra file để gửi
@@ -481,15 +492,4 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 - Chip "+" / "+ Thêm đuôi" ⇒ `LocalNameFilterSuffixEditorSheet` chế độ thêm từ name (`Source`): mở với đúng đoạn đó hoặc **nguyên cụm** name, thu / nới bằng ‹ › của hàng chữ gốc, khoá lưu = phần đang chọn (luôn thêm mới); ô nghĩa = phiên âm viết thường của phần đang chọn, đã gõ thì giữ; Loại = loại của name, "Sau tên"; dòng "Ví dụ" dùng chính name; "Thêm" mờ + dòng nhắc khi chọn cả cụm ("Chừa ít nhất 1 chữ trước đuôi."), phần chọn không nằm cuối name, hoặc dài quá 6 chữ.
 - Lưu đuôi (thêm hoặc sửa) ⇒ ghi qua `LocalNameFilterSuffixStore` như cũ ⇒ ghép lại nghĩa ngay các name trong màn duyệt đang mở: không phải người / họ tộc, kết thúc bằng đuôi đó, nghĩa vẫn do máy ghép (`autoMeanings`) — bằng đúng bộ ghép nghĩa của bộ lọc với danh sách đuôi hiện tại + công tắc Latin (`LocalNameFilterReviewSuffixContext`); nghĩa tự sửa giữ nguyên; ô nghĩa của màn Sửa từ theo nếu chưa gõ khác; gói tạm mang nghĩa máy ghép mới; toast "Đã thêm đuôi 街 · ghép lại N name".
 - Màn Sửa từ dùng chung (`DictEntryEditSheet`) thêm móc mặc định không đổi hành vi chỗ khác: `initialSelection`, `accessoryRows` (chế độ từ điển), `followsOriginalValue`; `DictEntryEditListMode.addsFromSource` + `suggestedMeaning`. `LocalNameFilterSuffixStore.suggestedMeaning(for:)` = phiên âm viết thường.
-- Chưa biên dịch (máy Windows), chưa thử trên máy.
-
-## [1.3.1100] - 2026-11-27
-
-### fix: lọc name local siết luật ghép mảnh từ điển, tập chữ phiên âm đóng trong app dùng ở mọi chế độ
-
-- Mọi mục từ điển dùng làm **một phần** của nghĩa — cả mảnh (phần riêng trước đuôi / danh xưng, mảnh tách theo `·`) và mục ghép khi phủ trọn — chỉ được nhận khi nghĩa chọn là (a) kiểu tên Hán-Việt: không phải chữ Latin, viết hoa chữ đầu mọi từ ("Đông Khu"); hoặc (b) chữ Latin mà khoá có ≥ 1 chữ thuộc tập chữ phiên âm (`LocalNameFilterProperNames.coverEntry` / `hasTranslitChar`). Không đạt ⇒ về Hán-Việt như cũ. Đường "cả từ có trong từ điển" giữ nguyên (图铎 đứng một mình vẫn ra Tudor). Bỏ ca lạ ở truyện Trung: 炎珠草 "Viên viêm châu thảo" ⇒ "Viêm Châu thảo", 黑礁岛 không còn ra "Black Lagoon đảo".
-- Ngưỡng (b) là **≥ 1 chữ**, không phải ≥ nửa (session chính chọn): tập 268 chữ thiếu nhiều chữ phiên âm thông dụng như 戴 里 图 铎, ngưỡng ≥ nửa làm hỏng 戴里克 Derrick, 所罗门 Solomon, 查拉图 Zaratul. Chọn nghĩa Latin (`pick`) và đoán tên khi bật "Ưu tiên tên Latin" vẫn dùng ngưỡng ≥ nửa.
-- Tập chữ phiên âm đóng trong app: `Sources/Resources/Translation/NameFilterTranslitChars.txt` (268 chữ, đúng `translitChars` của `translit_latin.json` @ HF `0df8c84a`), đọc một lần qua `LocalNameFilterTranslitChars`, dùng ở **mọi** chế độ kể cả tắt Latin (cách C) — giữ được Backlund Đông Khu, Russel đại đế, Derrick Berg khi tắt Latin. `translitChars` trong file mô hình chỉ để đối chiếu: lệch ⇒ log ❌ (`LocalNameFilterLatinModelGate`).
-- Python tham chiếu `name_meaning.py` sửa trước (`cover_entry`, `has_translit_char`, `load_translit_chars`); 10 truyện giữ y hàng. Với VP của anh, so với trước, đổi 8 hàng (tắt và bật Latin như nhau): 炎珠草 (sửa đúng), 图铎家族 / 图铎王朝 Tudor ⇒ Đồ Đạc, 水仙花街 "Thủy Tiên Hoa nhai", 沐氏家族 "Mộc Thị gia tộc", 天元圣女 "Thiên Nguyên Thánh Nữ", 天使神神位 "Thiên Sử Thần Thần Vị", 剑道·君亭 "Kiếm Đạo Quân Đình".
-- Comment `LocalNameFilter.Suffix`: danh sách đuôi chỉ để ghép nghĩa (không còn "đuôi đang bật").
 - Chưa biên dịch (máy Windows), chưa thử trên máy.

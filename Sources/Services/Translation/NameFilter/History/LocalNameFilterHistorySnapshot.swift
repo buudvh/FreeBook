@@ -3,7 +3,8 @@ import Foundation
 /// Bản chụp "Lịch sử lọc" của một truyện cho màn hình: các lần lọc (mới nhất trước) + gói tạm đang còn của truyện, đọc
 /// cùng lúc ở `LocalNameFilterHistoryStore.snapshot(bookId:)`. Trạng thái từng lần **suy ra** từ hai thứ đó (`status`) chứ
 /// không ghi trong mục: chưa lưu mà gói không còn (bị đẩy ra vì quá `LocalNameFilterDraftStore.maxDraftsPerBook`, bị bộ cập
-/// nhật bỏ hết name, đóng màn duyệt khi đã bỏ hết…) ⇒ "Gói tạm đã bị xoá".
+/// nhật bỏ hết name, đóng màn duyệt khi đã bỏ hết…) ⇒ "Gói tạm đã bị xoá"; còn "đang lọc" mà của lần chạy app trước ⇒
+/// "Bị ngắt".
 struct LocalNameFilterHistorySnapshot: Sendable, Equatable {
     enum Status: Equatable {
         /// Đã lưu X name (`savedCount`).
@@ -12,6 +13,24 @@ struct LocalNameFilterHistorySnapshot: Sendable, Equatable {
         case unsaved(LocalNameFilterDraft)
         /// Chưa lưu, gói tạm không còn ⇒ chỉ còn dòng lịch sử (mờ, không mở được).
         case draftGone
+        /// Đang lọc ở lần chạy app này (sheet đang lọc — trang lịch sử thường không thấy được).
+        case running
+        /// Mục "đang lọc" của lần chạy app trước: app thoát / chết lúc đang lọc.
+        case interrupted
+        /// Lọc xong / "Dừng" mà không ra name nào.
+        case noNames
+        /// Lỗi, kèm lời lỗi đầy đủ (`LocalNameFilterHistoryEntry.failureMessage`).
+        case failed(String)
+        /// Thoát giữa chừng (đóng sheet lúc đang lọc).
+        case cancelled
+
+        /// Lần không ra màn duyệt (không ra name, lỗi, huỷ, bị ngắt, đang lọc): nền sẫm, chạm không mở gì (mockup H2 bản 8).
+        var isInactive: Bool {
+            switch self {
+            case .saved, .unsaved, .draftGone: return false
+            case .running, .interrupted, .noNames, .failed, .cancelled: return true
+            }
+        }
     }
 
     static let empty = LocalNameFilterHistorySnapshot(entries: [], drafts: [])
@@ -32,6 +51,18 @@ struct LocalNameFilterHistorySnapshot: Sendable, Equatable {
     var latest: LocalNameFilterHistoryEntry? { entries.first }
 
     func status(of entry: LocalNameFilterHistoryEntry) -> Status {
+        switch entry.outcome {
+        case .running:
+            return entry.launchId == LocalNameFilterHistoryEntry.currentLaunchId ? .running : .interrupted
+        case .noNames:
+            return .noNames
+        case .failed:
+            return .failed(entry.failureMessage ?? "")
+        case .cancelled:
+            return .cancelled
+        case .reviewed:
+            break
+        }
         if let count = entry.savedCount { return .saved(count: count) }
         if let draft = drafts[entry.id] { return .unsaved(draft) }
         return .draftGone
@@ -63,6 +94,6 @@ struct LocalNameFilterHistorySnapshot: Sendable, Equatable {
     }
 
     private func hasUnsavedDraft(_ entry: LocalNameFilterHistoryEntry) -> Bool {
-        !entry.isSaved && drafts[entry.id] != nil
+        entry.outcome == .reviewed && !entry.isSaved && drafts[entry.id] != nil
     }
 }

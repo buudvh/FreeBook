@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1100] - 2026-11-27
+
+### fix: lọc name local siết luật ghép mảnh từ điển, tập chữ phiên âm đóng trong app dùng ở mọi chế độ
+
+- Mọi mục từ điển dùng làm **một phần** của nghĩa — cả mảnh (phần riêng trước đuôi / danh xưng, mảnh tách theo `·`) và mục ghép khi phủ trọn — chỉ được nhận khi nghĩa chọn là (a) kiểu tên Hán-Việt: không phải chữ Latin, viết hoa chữ đầu mọi từ ("Đông Khu"); hoặc (b) chữ Latin mà khoá có ≥ 1 chữ thuộc tập chữ phiên âm (`LocalNameFilterProperNames.coverEntry` / `hasTranslitChar`). Không đạt ⇒ về Hán-Việt như cũ. Đường "cả từ có trong từ điển" giữ nguyên (图铎 đứng một mình vẫn ra Tudor). Bỏ ca lạ ở truyện Trung: 炎珠草 "Viên viêm châu thảo" ⇒ "Viêm Châu thảo", 黑礁岛 không còn ra "Black Lagoon đảo".
+- Ngưỡng (b) là **≥ 1 chữ**, không phải ≥ nửa (session chính chọn): tập 268 chữ thiếu nhiều chữ phiên âm thông dụng như 戴 里 图 铎, ngưỡng ≥ nửa làm hỏng 戴里克 Derrick, 所罗门 Solomon, 查拉图 Zaratul. Chọn nghĩa Latin (`pick`) và đoán tên khi bật "Ưu tiên tên Latin" vẫn dùng ngưỡng ≥ nửa.
+- Tập chữ phiên âm đóng trong app: `Sources/Resources/Translation/NameFilterTranslitChars.txt` (268 chữ, đúng `translitChars` của `translit_latin.json` @ HF `0df8c84a`), đọc một lần qua `LocalNameFilterTranslitChars`, dùng ở **mọi** chế độ kể cả tắt Latin (cách C) — giữ được Backlund Đông Khu, Russel đại đế, Derrick Berg khi tắt Latin. `translitChars` trong file mô hình chỉ để đối chiếu: lệch ⇒ log ❌ (`LocalNameFilterLatinModelGate`).
+- Python tham chiếu `name_meaning.py` sửa trước (`cover_entry`, `has_translit_char`, `load_translit_chars`); 10 truyện giữ y hàng. Với VP của anh, so với trước, đổi 8 hàng (tắt và bật Latin như nhau): 炎珠草 (sửa đúng), 图铎家族 / 图铎王朝 Tudor ⇒ Đồ Đạc, 水仙花街 "Thủy Tiên Hoa nhai", 沐氏家族 "Mộc Thị gia tộc", 天元圣女 "Thiên Nguyên Thánh Nữ", 天使神神位 "Thiên Sử Thần Thần Vị", 剑道·君亭 "Kiếm Đạo Quân Đình".
+- Comment `LocalNameFilter.Suffix`: danh sách đuôi chỉ để ghép nghĩa (không còn "đuôi đang bật").
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1099] - 2026-11-27
 
 ### feat: gói name tạm tự cập nhật theo danh sách đuôi và danh sách không phải name
