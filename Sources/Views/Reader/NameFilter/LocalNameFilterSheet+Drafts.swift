@@ -76,7 +76,8 @@ extension LocalNameFilterSheet {
         let inputs = await MainActor.run {
             LocalNameFilterDraftRefresher.Inputs(
                 bookId: bid,
-                blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
+                // "Không phải name" Chung + Riêng của truyện.
+                blockedTerms: LocalNameFilterBookBlocklistStore.effectiveTerms(bookId: bid),
                 suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bid),
                 prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bid),
                 prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bid),

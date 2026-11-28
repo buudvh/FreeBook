@@ -2,6 +2,17 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1092] - 2026-11-27
+
+### feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện
+
+Anh Bửu: "sắp xếp mặc định theo chưa chọn lên trước và theo số lần xuất hiện" (xác nhận cách hiểu 2026-11-27).
+
+- Kiểu sắp mới `ReaderAINameReviewCardView.SortMode.unselectedFirst` ("Chưa chọn trước", chip "Chưa chọn"): mục chưa chọn — chủ yếu name đã có NE / VP bị bỏ chọn sẵn — lên đầu, mỗi nhóm số lần giảm dần, hoà thì theo chữ Hán. Ví dụ 李印生 (NE, 4284) → 穆小鱼 (NE, 1287) → 炽翎 (735) → 赤玄子 (43).
+- Là mặc định của luồng lọc local (kể cả mở lại gói tạm); menu vẫn có "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu — tích / bỏ tích một ô không làm hàng nhảy chỗ.
+- Luồng AI giữ nguyên ("Đã chọn trước", menu cũ). Bốn mục menu dựng bằng một hàm chung `sortMenuButton`.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1091] - 2026-11-27
 
 ### fix: lọc name local giữ model khi chỉ lỗi đọc file, bộ luật bỏ dòng tên chương như bản Python, sửa loại đuôi 花 không tự bật

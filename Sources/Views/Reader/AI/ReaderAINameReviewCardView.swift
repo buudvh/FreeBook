@@ -22,10 +22,11 @@ public struct ReaderAINameReviewCardView: View {
     /// Chạm thân hàng của một mục: nơi dùng mở màn Sửa từ (card không biết truyện nên không tự mở). `nil` ⇒ chạm
     /// không làm gì.
     public var onEdit: ((UUID) -> Void)? = nil
-    /// Thùng rác › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ; card bỏ mục khỏi
-    /// danh sách sau khi gọi. Có ⇒ thùng rác mở menu "Bỏ khỏi lần này" / "Không phải name". Luồng AI dùng `onToggleStrike`
+    /// Thùng rác › "Không phải name" (luồng "Lọc name local"): nơi dùng thêm mục vào danh sách loại bỏ **theo phạm vi**
+    /// (riêng truyện / mọi truyện, 2026-11-28 mockup N1); card bỏ mục khỏi danh sách sau khi gọi. Có ⇒ thùng rác mở menu "Bỏ
+    /// khỏi lần này" / "Không phải name · riêng truyện" / "Không phải name · mọi truyện". Luồng AI dùng `onToggleStrike`
     /// (gạch / bỏ gạch); không truyền cả hai ⇒ thùng rác xoá khỏi danh sách đang duyệt.
-    public var onBlock: ((UUID) -> Void)? = nil
+    public var onBlock: ((UUID, LocalNameFilter.BlockScope) -> Void)? = nil
     /// Luồng AI (anh Bửu 2026-11-27): có ⇒ thùng rác **gạch** hàng thay cho xoá; hàng gạch hiện ↶ Hoàn tác (bấm = bỏ gạch).
     /// Trạng thái gạch do nơi dùng giữ (`struckKeys`, khoá = vế trái đã trim) và lưu vào tin nguồn.
     public var onToggleStrike: ((UUID) -> Void)? = nil
@@ -50,7 +51,7 @@ public struct ReaderAINameReviewCardView: View {
         onDelete: ((UUID) -> Void)? = nil,
         onEdit: ((UUID) -> Void)? = nil,
         initialSortMode: SortMode = .selectedFirst,
-        onBlock: ((UUID) -> Void)? = nil,
+        onBlock: ((UUID, LocalNameFilter.BlockScope) -> Void)? = nil,
         struckKeys: Set<String> = [],
         onToggleStrike: ((UUID) -> Void)? = nil,
         showsCategoryFilter: Bool = false
@@ -148,7 +149,7 @@ public struct ReaderAINameReviewCardView: View {
                                 onEdit?(item.id)
                             }
 
-                            // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu hai lựa chọn.
+                            // Nút xóa từng mục; luồng lọc local (`onBlock`) ⇒ menu ba lựa chọn.
                             removeControl(id: item.id, term: item.original, struck: isStruck(item))
                         }
                         // Không đệm hai bên: khung 44 pt của ô chọn (trái) và ✕ (phải) đã tự chừa lề, hai icon cách mép đều nhau.
@@ -226,8 +227,9 @@ public struct ReaderAINameReviewCardView: View {
         .background(Self.cardBackground)
     }
 
-    /// Nút xoá (thùng rác) của một hàng. Luồng AI (`onBlock == nil`): xoá ngay như cũ. Luồng lọc local: menu "Bỏ khỏi lần này" (chỉ bỏ khỏi
-    /// danh sách đang duyệt) / "Không phải name" (bỏ + thêm vào danh sách loại bỏ qua `onBlock`).
+    /// Nút xoá (thùng rác) của một hàng. Luồng AI (`onBlock == nil`): xoá ngay như cũ. Luồng lọc local (mockup N1): menu "Bỏ
+    /// khỏi lần này" (chỉ bỏ khỏi danh sách đang duyệt) / "Không phải name · riêng truyện" (bỏ + chặn ở truyện này) / "Không
+    /// phải name · mọi truyện" (chữ đỏ — bỏ + chặn ở mọi truyện), hai mục sau qua `onBlock`.
     @ViewBuilder
     private func removeControl(id: UUID, term: String, struck: Bool) -> some View {
         if let onToggleStrike {
@@ -252,10 +254,15 @@ public struct ReaderAINameReviewCardView: View {
                 } label: {
                     Label("Bỏ khỏi lần này", systemImage: "minus.circle")
                 }
-                Button(role: .destructive) {
-                    blockItem(id: id)
+                Button {
+                    blockItem(id: id, scope: .book)
                 } label: {
-                    Label("Không phải name", systemImage: "nosign")
+                    Label("Không phải name · riêng truyện", systemImage: "nosign")
+                }
+                Button(role: .destructive) {
+                    blockItem(id: id, scope: .common)
+                } label: {
+                    Label("Không phải name · mọi truyện", systemImage: "nosign")
                 }
             } label: {
                 removeIcon
@@ -288,9 +295,9 @@ public struct ReaderAINameReviewCardView: View {
         names.removeAll(where: { $0.id == id })
     }
 
-    /// "Không phải name": báo nơi dùng **trước** (còn tra được mục theo `id`) rồi bỏ khỏi danh sách.
-    private func blockItem(id: UUID) {
-        onBlock?(id)
+    /// "Không phải name" (theo phạm vi): báo nơi dùng **trước** (còn tra được mục theo `id`) rồi bỏ khỏi danh sách.
+    private func blockItem(id: UUID, scope: LocalNameFilter.BlockScope) {
+        onBlock?(id, scope)
         names.removeAll(where: { $0.id == id })
     }
 }

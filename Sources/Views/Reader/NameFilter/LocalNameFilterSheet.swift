@@ -65,6 +65,8 @@ struct LocalNameFilterSheet: View {
     @State var prefixBookCount: Int = 0
     @State var surnameCount: Int = 0
     @State var blockedCount: Int = 0
+    /// Số cụm "Không phải name" riêng của truyện này (hàng ghi "214 · 3 riêng").
+    @State var blockedBookCount: Int = 0
     /// "Độ dài name" (plan 2026-11-27-phan-loai-name L15): ít nhất / nhiều nhất N chữ, 2…10; nhiều nhất 10 = "10+" (không
     /// giới hạn). Mặc định 2 – 10+ ⇒ kết quả như trước. Giá trị hỏng được kẹp khi đọc (`LocalNameFilterLengthRangeSlider`).
     @AppStorage("localNameFilterMinLength") var minLengthSetting: Int = LocalNameFilterLengthRangeSlider.bounds.lowerBound
@@ -81,7 +83,7 @@ struct LocalNameFilterSheet: View {
                     names: session.reviewNames,
                     bookId: bookId,
                     onSave: { items, isName, mode in save(items, isName: isName, mode: mode) },
-                    onBlockName: { item in block(item) },
+                    onBlockName: { item, scope in block(item, scope: scope) },
                     onNamesChange: { names in session.updateReviewNames(names) },
                     onBack: { session.leaveReview() },
                     suffixContext: session.reviewSuffixContext
@@ -172,7 +174,8 @@ struct LocalNameFilterSheet: View {
         let configuration = LocalNameFilter.Configuration(
             minCount: minCount,
             suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId),
-            blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
+            // "Không phải name" Chung + Riêng của truyện.
+            blockedTerms: LocalNameFilterBookBlocklistStore.effectiveTerms(bookId: bookId),
             categories: selectedCategories,
             prefersLatinNames: prefersLatinNames,
             prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId),
@@ -236,15 +239,22 @@ struct LocalNameFilterSheet: View {
         }
     }
 
-    /// ✕ › "Không phải name": màn duyệt bỏ mục khỏi lần này; ở đây thêm vào danh sách loại bỏ dùng chung. Store từ chối
-    /// (không phải chữ Hán, quá dài, đầy danh sách…) ⇒ toast lỗi của store, mục vẫn chỉ bị bỏ khỏi lần này.
-    private func block(_ item: AIExtractedName) {
+    /// Thùng rác › "Không phải name · riêng truyện / mọi truyện" (mockup N1): màn duyệt bỏ mục khỏi lần này; ở đây thêm vào
+    /// danh sách loại bỏ riêng của truyện (`LocalNameFilterBookBlocklistStore`) hoặc dùng chung (`LocalNameFilterBlocklistStore`).
+    /// Store từ chối (không phải chữ Hán, quá dài, đầy danh sách…) ⇒ toast lỗi của store, mục vẫn chỉ bị bỏ khỏi lần này.
+    private func block(_ item: AIExtractedName, scope: LocalNameFilter.BlockScope) {
         let term = item.original.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { return }
-        if let error = LocalNameFilterBlocklistStore.shared.add(term) {
+        let error: String?
+        switch scope {
+        case .book: error = LocalNameFilterBookBlocklistStore.shared.add(term, bookId: bookId)
+        case .common: error = LocalNameFilterBlocklistStore.shared.add(term)
+        }
+        if let error {
             ToastManager.shared.show(message: error, type: .error)
         } else {
-            ToastManager.shared.show(message: "Đã thêm \(term) vào “Không phải name”", type: .success)
+            let note = scope == .book ? "riêng truyện" : "mọi truyện"
+            ToastManager.shared.show(message: "Đã thêm \(term) vào “Không phải name” (\(note))", type: .success)
         }
     }
 }

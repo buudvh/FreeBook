@@ -164,15 +164,15 @@ extension LocalNameFilterSheet {
                 listRow("Họ", count: surnameCount) {
                     LocalNameFilterSurnameListView()
                 }
-                listRow("Không phải name", count: blockedCount) {
-                    LocalNameFilterBlocklistView()
+                listRow("Không phải name", count: blockedCount, bookCount: blockedBookCount) {
+                    LocalNameFilterBlocklistView(bookId: bookId)
                 }
             } header: {
                 SectionHelpHeader("Danh sách", paragraphs: [
-                    "Dùng chung cho mọi truyện. Số bên phải là số mục trong từng danh sách; Hậu tố / Tiền tố còn có danh sách **riêng của truyện này** (\"· N riêng\", chip Riêng truyện trong màn danh sách) — cùng chữ thì bản riêng thắng.",
+                    "Dùng chung cho mọi truyện. Số bên phải là số mục trong từng danh sách; Hậu tố / Tiền tố / Không phải name còn có danh sách **riêng của truyện này** (\"· N riêng\", chip Riêng truyện trong màn danh sách) — hậu tố / tiền tố cùng chữ thì bản riêng thắng, Không phải name chặn theo cả hai.",
                     "**Hậu tố**: ghép nghĩa name theo loại — địa danh, tổ chức, thuật ngữ (落霞镇 ⇒ Lạc Hà trấn) và danh xưng sau tên người, loại Nhân danh (陈长老 ⇒ Trần trưởng lão). **Tiền tố**: 老 / 小… đứng trước tên Latin (老尼尔 ⇒ lão Neil). Hai danh sách này chỉ dùng để dịch nghĩa; việc dò name dùng bộ hậu tố cố định trong app.",
                     "**Họ**: họ bộ lọc dùng để nhận ra tên người và đọc âm họ, riêng với Danh sách họ của rule dịch nhanh.",
-                    "**Không phải name**: cụm đã loại, lần lọc sau không hiện nữa."
+                    "**Không phải name**: cụm đã loại, lần lọc sau không hiện nữa — ở riêng truyện này hoặc ở mọi truyện."
                 ])
             }
         }.glassSheetRows() }
@@ -347,6 +347,7 @@ extension LocalNameFilterSheet {
         prefixBookCount = LocalNameFilterPrefixStore.shared.bookStore.count(bookId: bookId)
         surnameCount = QuickTranslationSurnameStore.nameFilter.summary().total
         blockedCount = LocalNameFilterBlocklistStore.shared.count
+        blockedBookCount = LocalNameFilterBookBlocklistStore.shared.count(bookId: bookId)
         prefersLatinNames = LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
         loosensLatinGuess = LocalNameFilterLatinPreferenceStore.loose.isOn(bookId: bookId)
     }

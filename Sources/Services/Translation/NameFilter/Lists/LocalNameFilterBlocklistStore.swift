@@ -8,6 +8,8 @@ import Foundation
 ///   (`addedAt` = giây từ 1970). Khoá chữ thường ⇒ `BackupSettingsArchiver` tự gói. Danh sách rỗng ⇒ xoá khoá.
 /// - Thêm từ màn duyệt (✕ › "Không phải name") hoặc nút + của màn quản lý; trần `maxCount` cụm.
 /// - Đọc `UserDefaults` mỗi lần (không cache) nên bước khôi phục của Backup có hiệu lực ngay; mọi lời gọi đến từ main.
+/// - Có thêm danh sách **riêng truyện** (2026-11-28, `LocalNameFilterBookBlocklistStore`): bộ lọc của một truyện chặn theo
+///   Chung + Riêng (`LocalNameFilterBookBlocklistStore.effectiveTerms(bookId:)`).
 ///
 /// Ranh giới tầng: Service ⇒ không `import SwiftUI`, không `ToastManager`; lỗi trả chuỗi cho View tự báo.
 final class LocalNameFilterBlocklistStore {
@@ -108,7 +110,8 @@ final class LocalNameFilterBlocklistStore {
 
     // MARK: - Nội bộ
 
-    private static func formatError(_ term: String) -> String? {
+    /// Luật một cụm (không tính trùng) — dùng chung với danh sách riêng truyện (`LocalNameFilterBookBlocklistStore`).
+    static func formatError(_ term: String) -> String? {
         if term.isEmpty { return "Chưa nhập cụm chữ Hán." }
         guard LocalNameFilterSuffixListParser.isHanText(term) else { return "Chỉ nhập chữ Hán, không dấu cách." }
         if term.unicodeScalars.count > maxTermLength { return "Cụm dài quá \(maxTermLength) chữ." }

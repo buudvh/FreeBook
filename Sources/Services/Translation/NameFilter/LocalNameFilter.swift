@@ -79,6 +79,16 @@ public enum LocalNameFilter {
         public var label: String { category.label }
     }
 
+    /// Phạm vi của một cụm **"Không phải name"** (2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung
+    /// N1 / N4): chỉ truyện đang mở (`LocalNameFilterBookBlocklistStore`) hay mọi truyện (`LocalNameFilterBlocklistStore`).
+    /// `public` vì thùng rác của màn duyệt (`ReaderAINameReviewCardView`, kiểu `public`) báo phạm vi qua closure.
+    public enum BlockScope: String, Sendable, CaseIterable {
+        /// Riêng truyện.
+        case book
+        /// Chung — mọi truyện.
+        case common
+    }
+
     /// Nghĩa của đuôi đứng trước hay sau phần tên riêng. Mặc định `after`: 落霞镇 → "Lạc Hà trấn";
     /// `before`: 市 = "thành phố" ⇒ 江海市 → "thành phố Giang Hải".
     public enum MeaningPosition: String, Codable, Sendable, CaseIterable {

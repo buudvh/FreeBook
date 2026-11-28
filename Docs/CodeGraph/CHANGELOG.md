@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1122] - 2026-11-28
+
+### feat: lọc name local có danh sách Không phải name riêng truyện, thùng rác ba lựa chọn và chip phạm vi ở màn danh sách
+
+Đợt bổ sung 28/11 chiều (mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N1, N4; plan "Plan đợt bổ sung", anh Bửu duyệt).
+
+- Kho mới `LocalNameFilterBookBlocklistStore` (Services/…/NameFilter/Lists): `UserDefaults` khoá `localNameFilterBookBlockedTerms` = JSON `{bookId: [{term, addedAt}]}` (chữ thường không dấu chấm ⇒ Backup tự gói), cùng luật cụm với danh sách Chung (`LocalNameFilterBlocklistStore.formatError`, nay `internal static`), trần 5.000 cụm mỗi truyện, trùng trong cùng truyện ⇒ không thêm lần nữa. Cùng cụm với danh sách Chung thì được — hai danh sách độc lập (xoá khỏi Chung thì truyện vẫn chặn). Đổi nguồn gộp theo cụm, ngày thêm của truyện cũ thắng (`BookSourceMigrator.copyBookScopedSettings`); xoá truyện / bản cũ xoá (`removeBookScopedSettings`, `BookStorageManager.deleteBookSideData`).
+- Bộ lọc của truyện chặn theo Chung + Riêng: `LocalNameFilterBookBlocklistStore.effectiveTerms(bookId:)` cho `Configuration.blockedTerms` lúc bấm "Bắt đầu lọc" và cho gói tạm tự cập nhật (`LocalNameFilterDraftRefresher` bỏ name bị chặn ở cả hai).
+- Thùng rác mỗi hàng của màn duyệt luồng lọc local (N1): "Bỏ khỏi lần này" · "Không phải name · riêng truyện" · "Không phải name · mọi truyện" (chữ đỏ). Phạm vi đi qua kiểu công khai mới `LocalNameFilter.BlockScope` (`ReaderAINameReviewCardView.onBlock`, `ReaderAINameReviewSheet.onBlockName` đổi chữ ký — chỉ `LocalNameFilterSheet` dùng); toast "Đã thêm X vào “Không phải name” (riêng truyện / mọi truyện)".
+- Màn "Không phải name" (N4): `LocalNameFilterBlocklistView(bookId:)` mở từ sheet Lọc name local có hàng chip phạm vi "Chung N · Riêng truyện N" như màn Hậu tố (M6, `LocalNameFilterAffixKindFilterBar.chip`), mặc định Chung; thêm / sửa / xoá / Xoá hết theo chip đang chọn; màn Sửa từ của danh sách (`LocalNameFilterBlocklistEditorSheet`) có badge "Không phải name · Chung" / "· Riêng truyện" và kiểm trùng ở đúng danh sách (không có cụm R | C). Sheet Lọc name local: hàng "Không phải name" ghi "214 · 3 riêng"; lời "?" của mục Danh sách nói thêm bản riêng.
+
 ## [1.3.1121] - 2026-11-28
 
 ### feat: lọc name local tin Name và VP riêng cho lõi tên Latin, thêm công tắc Nới đoán tên Latin theo truyện và theo name
@@ -484,15 +495,4 @@ Anh Bửu: "các token số như vạn ức, ngàn vạn, chưa chính xác", "v
 - **Danh sách:** `<n>,<n>` / `<n>、<n>`: số trước là một chữ số trần thì mượn bậc của số sau — 八,九万年 ra "80000, 90000 năm" (trước "8, 90000"), 三、四千年 ra "3000, 4000 năm".
 - `walkNumeral` dời sang `QuickTranslationRuleMatcher+Numeral.swift` (file gốc 387 → 298 dòng); compiler gắn `numeralUnitsBefore/After`, `isPatternHead`, `numeralListPairs` (`QuickTranslationRuleCompiler+NumeralNeighbours`). Hướng dẫn viết rule thêm hai dòng về `<n>`; `translation.md` thêm đoạn "Token số lớn".
 - Đo trên 6 truyện (3.387 đoạn có số lớn): chỉ các đoạn sai đổi, không đoạn nào hỏng; 十万年 (274 lần), 两万四千年, 十万八千年 giữ nguyên. Còn cần rule giữ chữ của anh: 百转千回, 成千上万, 万人之上, 千岁 (tước hiệu), 千万 (code không phân biệt 千万不要 với 千万人).
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1092] - 2026-11-27
-
-### feat: màn duyệt của lọc name local mặc định xếp mục chưa chọn lên đầu, mỗi nhóm theo số lần xuất hiện
-
-Anh Bửu: "sắp xếp mặc định theo chưa chọn lên trước và theo số lần xuất hiện" (xác nhận cách hiểu 2026-11-27).
-
-- Kiểu sắp mới `ReaderAINameReviewCardView.SortMode.unselectedFirst` ("Chưa chọn trước", chip "Chưa chọn"): mục chưa chọn — chủ yếu name đã có NE / VP bị bỏ chọn sẵn — lên đầu, mỗi nhóm số lần giảm dần, hoà thì theo chữ Hán. Ví dụ 李印生 (NE, 4284) → 穆小鱼 (NE, 1287) → 炽翎 (735) → 赤玄子 (43).
-- Là mặc định của luồng lọc local (kể cả mở lại gói tạm); menu vẫn có "Nhiều lần nhất", "Đã chọn trước", "A → Z". Danh sách chỉ sắp lại lúc mở màn hoặc khi chọn ở menu — tích / bỏ tích một ô không làm hàng nhảy chỗ.
-- Luồng AI giữ nguyên ("Đã chọn trước", menu cũ). Bốn mục menu dựng bằng một hàm chung `sortMenuButton`.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.

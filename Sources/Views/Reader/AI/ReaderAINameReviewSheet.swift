@@ -44,8 +44,9 @@ public struct ReaderAINameReviewSheet: View {
     /// Kiểu sắp lúc mở card: luồng AI "Đã chọn trước", luồng lọc local "Chưa có trước" (name chưa có trong Name / VP lên
     /// đầu, rồi số lần — `ReaderAINameReviewCardView.SortMode.notInDictionaryFirst`).
     let initialSortMode: ReaderAINameReviewCardView.SortMode
-    /// Thùng rác › "Không phải name" — chỉ luồng lọc local truyền; luồng AI gạch hàng (`onStrikeName`).
-    public let onBlockName: ((AIExtractedName) -> Void)?
+    /// Thùng rác › "Không phải name · riêng truyện / mọi truyện" — chỉ luồng lọc local truyền; luồng AI gạch hàng
+    /// (`onStrikeName`).
+    public let onBlockName: ((AIExtractedName, LocalNameFilter.BlockScope) -> Void)?
     /// Luồng lọc local: danh sách đang duyệt mỗi lần đổi (chọn / bỏ chọn, sửa, bỏ mục, cờ NE / VP tra lại) — nơi gọi giữ
     /// bản mới nhất để thành gói tạm khi đóng màn mà chưa Lưu (`LocalNameFilterSession+Drafts`). Luồng AI: `nil`.
     let onNamesChange: (([AIExtractedName]) -> Void)?
@@ -112,7 +113,7 @@ public struct ReaderAINameReviewSheet: View {
         names: [AIExtractedName],
         bookId: String,
         onSave: @escaping ([AIExtractedName], Bool, DataImportMode) -> Void,
-        onBlockName: @escaping (AIExtractedName) -> Void,
+        onBlockName: @escaping (AIExtractedName, LocalNameFilter.BlockScope) -> Void,
         onNamesChange: (([AIExtractedName]) -> Void)? = nil,
         onBack: (() -> Void)? = nil,
         suffixContext: LocalNameFilterReviewSuffixContext? = nil
@@ -156,12 +157,13 @@ public struct ReaderAINameReviewSheet: View {
         prefilledNames == nil && struckKeys.contains(AIRuntimeCoordinator.nameKey(item.original))
     }
 
-    /// ✕ › "Không phải name" của card ⇒ `onBlockName` với mục đầy đủ. Card gọi trước khi tự bỏ mục ⇒ còn tra được theo id.
-    private var blockHandler: ((UUID) -> Void)? {
+    /// Thùng rác › "Không phải name · …" của card ⇒ `onBlockName` với mục đầy đủ + phạm vi. Card gọi trước khi tự bỏ mục ⇒
+    /// còn tra được theo id.
+    private var blockHandler: ((UUID, LocalNameFilter.BlockScope) -> Void)? {
         guard let onBlockName else { return nil }
-        return { blockedId in
+        return { blockedId, scope in
             if let item = names.first(where: { $0.id == blockedId }) {
-                onBlockName(item)
+                onBlockName(item, scope)
             }
         }
     }

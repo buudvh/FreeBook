@@ -4,7 +4,8 @@ import Foundation
 /// AI, phạm vi + điểm tiếp nối quét tên riêng, prompt quét tên Gần đây (`AINameScanPromptStore`), chế độ dịch riêng, bộ
 /// dịch riêng (`TranslationEngineStore`), dấu trang + ghi chú (`BookAnnotationStore`), gói name tạm của Lọc name local
 /// (`LocalNameFilterDraftStore`), công tắc "Ưu tiên tên Latin" / "Nới đoán tên Latin" (`LocalNameFilterLatinPreferenceStore`),
-/// tiền tố / hậu tố riêng truyện của Lọc name local (`LocalNameFilterBookAffixStore`). Thêm
+/// tiền tố / hậu tố + "Không phải name" riêng truyện của Lọc name local (`LocalNameFilterBookAffixStore`,
+/// `LocalNameFilterBookBlocklistStore`). Thêm
 /// kho mới khoá theo `bookId` ⇒ thêm vào **cả hai** hàm.
 ///
 /// Từ 1.3.689 tách hai bước: `copyBookScopedSettings` chỉ **chép** (không đụng bản cũ; truyện đích đã có bản riêng thì giữ
@@ -53,6 +54,8 @@ public actor BookSourceMigrator {
         // Tiền tố / hậu tố riêng truyện của Lọc name local: gộp theo khoá, mục truyện cũ thắng.
         LocalNameFilterBookAffixStore.suffixes.copy(from: oldBookId, to: newBookId)
         LocalNameFilterBookAffixStore.prefixes.copy(from: oldBookId, to: newBookId)
+        // "Không phải name" riêng truyện: gộp theo cụm, ngày thêm của truyện cũ thắng.
+        LocalNameFilterBookBlocklistStore.shared.copy(from: oldBookId, to: newBookId)
 
         let oldOverride = TranslationConfigStore.shared.getBookOverride(bookId: oldBookId)
         if oldOverride != .inherited, TranslationConfigStore.shared.getBookOverride(bookId: newBookId) == .inherited {
@@ -89,6 +92,7 @@ public actor BookSourceMigrator {
         LocalNameFilterLatinPreferenceStore.loose.remove(bookId: bookId)
         LocalNameFilterBookAffixStore.suffixes.remove(bookId: bookId)
         LocalNameFilterBookAffixStore.prefixes.remove(bookId: bookId)
+        LocalNameFilterBookBlocklistStore.shared.remove(bookId: bookId)
         if TranslationConfigStore.shared.getBookOverride(bookId: bookId) != .inherited {
             TranslationConfigStore.shared.setBookOverride(bookId: bookId, mode: .inherited)
         }
