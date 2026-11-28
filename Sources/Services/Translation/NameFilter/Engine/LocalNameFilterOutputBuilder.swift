@@ -8,8 +8,9 @@ import Foundation
 ///   có ghép đúng hai hàng **Nhân danh** của danh sách, mỗi phần ≥ 2 chữ (姬晴|苟义) ⇒ bỏ (`glued_names`). Plan
 ///   2026-11-27-phan-loai-name. Rồi luật rác L17–L22 (`junk_reason`, 2026-11-28 — `LocalNameFilterJunkRules`): name chưa có
 ///   ghép từ hai name (`glued_entities`), giới từ + hậu tố (`prep_head`), chữ lặp / chữ số (`repeat_or_digit`), tên người
-///   toàn từ thường (`common_phrase`), động từ + đuôi ở hàng bộ luật (`verb_head`), tên người + 1 chữ hiếm (`name_fragment`).
-/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có — không có L5 / L9 / L17–L22 (như
+///   toàn từ thường (`common_phrase`), động từ + đuôi ở hàng bộ luật (`verb_head`), tên người + 1 chữ hiếm (`name_fragment`);
+///   đợt 3 thêm lượng từ số đông đứng đầu (`quantity_head`, L25) và tên bị cắt giữa danh xưng (`title_fragment`, L24).
+/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có — không có L5 / L9 / L17–L25 (như
 ///   `fallback_rules.py`).
 ///
 /// Rồi lọc "Không phải name" (`user_blocked`), "Loại cần tìm" (`category_off`) và "Độ dài name" (`length_off`, L15 — đếm
@@ -120,7 +121,7 @@ struct LocalNameFilterOutputBuilder {
         }
     }
 
-    /// Luật rác L17–L22 (`junk_reason`): bảng tra dựng từ mọi hàng sau L9 (kể cả name đã có), chỉ xét name chưa có.
+    /// Luật rác L17–L25 (`junk_reason` + `title_fragment`): bảng tra dựng từ mọi hàng sau L9 (kể cả name đã có), chỉ xét name chưa có.
     private func droppingJunk(
         _ items: [Item],
         counts: LocalNameFilterLACCounts,

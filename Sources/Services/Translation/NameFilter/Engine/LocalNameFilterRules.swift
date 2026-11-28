@@ -69,7 +69,7 @@ enum LocalNameFilterRules {
     /// L4: nhãn thường ≥ 2 lần tổng nhãn thực thể.
     static let commonTagFactor: Int32 = 2
 
-    // MARK: - Luật rác L17–L22 (`lacpipe.py` › `junk_reason`, anh Bửu duyệt 2026-11-28) — `LocalNameFilterJunkRules`
+    // MARK: - Luật rác L17–L25 (`lacpipe.py` › `junk_reason` + `title_fragment`, anh Bửu duyệt 2026-11-28) — `LocalNameFilterJunkRules`
 
     /// `PREP_HEAD` (L18, 65 chữ): giới từ / phó từ / chữ chỉ số đông đứng ngay trước hậu tố (朝城, 处山脉, 众村).
     static let prepHeadScalars: Set<UInt32> = scalarSet(
@@ -92,6 +92,16 @@ enum LocalNameFilterRules {
     static let verbHeadMaxCount = 20
     static let verbHeadMinTagged = 20
     static let verbHeadVerbishRatio = 0.6
+    /// L23 (bộ luật, v3): địa danh / tổ chức mà chữ cuối dính chữ sau thành từ VP / danh xưng ≥ 80 % số lần.
+    static let glueStrong = 0.8
+    /// L24: hàng `w + c` xuất hiện ≥ 80 % số lần của `w`.
+    static let titleFragmentRatio = 0.8
+    /// `QUANT_HEAD` (L25, 12 từ): lượng từ số đông đứng đầu name ≥ 3 chữ (许多大家族, 诸多大宗门, 一众江湖). Phần "số + 大"
+    /// (八大宗门) đã đo nhưng bỏ — trúng cả tên nhóm 八大天君, 四大圣岛.
+    static let quantityHeads: [LocalNameFilterWord] = [
+        "许多", "诸多", "众多", "一众", "无数", "各大", "所有", "一些", "这些", "那些", "其他", "其余",
+    ].map { (head: String) in LocalNameFilterWord(head) }
+    static let quantityHeadMinLength = 3
 
     // MARK: - Ngưỡng (Python)
 
@@ -139,6 +149,8 @@ enum LocalNameFilterRules {
         // v3
         static let personHeadPlusLight = "person_head_plus_light"
         static let weakSurnameNoEvidence = "weak_surname_no_evidence"
+        /// L23: địa danh / tổ chức cắt ngang một từ — chữ cuối dính chữ sau ≥ 80 % (先生帮|忙, 风暴教|会).
+        static let glueRightStrong = "glue_right_strong"
         // Phía LAC (`lacpipe.py`). `dict_common_word` / `dict_common_head` / `dict_common_given` trùng tên luật của bộ
         // luật nhưng là luật riêng của phía LAC — log tách hai nhóm.
         static let fragment = "fragment"
@@ -162,6 +174,10 @@ enum LocalNameFilterRules {
         static let verbHead = "verb_head"
         /// L21: tên người khác của danh sách + 1 chữ, hiếm hơn hẳn (陈诚|头).
         static let nameFragment = "name_fragment"
+        /// L24: tên người bị cắt giữa danh xưng, tên đủ vẫn có trong danh sách (萧太 ⊂ 萧太上).
+        static let titleFragment = "title_fragment"
+        /// L25: lượng từ số đông đứng đầu (许多大家族, 一众江湖).
+        static let quantityHead = "quantity_head"
         /// Đầu ra: ngoài "Loại cần tìm".
         static let categoryOff = "category_off"
         /// Đầu ra (L15): ngoài "Độ dài name".

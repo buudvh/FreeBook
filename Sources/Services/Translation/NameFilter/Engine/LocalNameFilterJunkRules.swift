@@ -23,6 +23,12 @@ import Foundation
 ///    毁灭森林, 极北城, 冶炼司 giữ).
 /// 6. L21 `name_fragment` — Nhân danh ≥ 3 chữ = Nhân danh khác của danh sách (≥ 100 lần) + 1 chữ, số lần < 1 % của tên
 ///    đó, chữ cuối và hai chữ cuối đều không phải hậu tố Nhân danh (陈诚头, 邓恩先, 宁天俏; 王家主 giữ nhờ 家主).
+///
+/// Đợt 3 (2026-11-28, anh Bửu "tự chọn"; Python 11 truyện bỏ thêm 30 hàng cùng L23 của bộ luật, 0 name đã có bị mất):
+/// L25 `quantity_head` xét ngay sau L19 — name ≥ 3 chữ mở đầu bằng lượng từ số đông `quantityHeads` (许多大家族, 诸多大宗门,
+/// 一众江湖); L24 `title_fragment` xét **sau cùng** (`title_fragment(r)` chạy khi `junk_reason` không bắt) — Nhân danh `w`
+/// có hàng `w + c` (≥ 80 % số lần của `w`) mà chữ cuối hoặc hai chữ cuối của `w` + `c` là hậu tố Nhân danh ⇒ `w` là tên
+/// bị cắt giữa danh xưng, tên đủ vẫn còn (萧太 ⊂ 萧太上, 离乱天 ⊂ 离乱天君).
 struct LocalNameFilterJunkRules {
     typealias Word = LocalNameFilterWord
     private typealias Rules = LocalNameFilterRules
@@ -49,6 +55,8 @@ struct LocalNameFilterJunkRules {
     private let categories: [Word: LocalNameFilter.Category]
     /// `count_of`.
     private let rowCounts: [Word: Int]
+    /// L24: `w` ⇒ các hàng `w + c` của `count_of` (chữ thêm `c`, số lần) — thay vòng quét cả `count_of` của Python.
+    private let extensions: [Word: [(last: UInt32, count: Int)]]
 
     /// `rows`: **mọi** hàng sau L9, kể cả name đã có.
     init(
@@ -63,6 +71,11 @@ struct LocalNameFilterJunkRules {
         // Dict comprehension của Python: trùng khoá thì hàng sau thắng (danh sách không có khoá trùng).
         categories = Dictionary(rows.map { ($0.word, $0.category) }, uniquingKeysWith: { _, last in last })
         rowCounts = Dictionary(rows.map { ($0.word, $0.count) }, uniquingKeysWith: { _, last in last })
+        var extensions: [Word: [(last: UInt32, count: Int)]] = [:]
+        for (word, count) in rowCounts where word.count >= 3 {
+            extensions[word.dropLast(1), default: []].append((word.last, count))
+        }
+        self.extensions = extensions
     }
 
     /// `junk_reason(r)` — tên lý do bỏ, `nil` = giữ.
@@ -76,12 +89,14 @@ struct LocalNameFilterJunkRules {
             return Reason.prepHead
         }
         if Self.hasRepeatOrDigit(word) { return Reason.repeatOrDigit }
+        if Self.hasQuantityHead(word) { return Reason.quantityHead }
         if row.category == .person, !row.isRuleRow, dictionaries.surnameLength(of: word) == 0,
            !Rules.kinTailScalars.contains(word.last), !setup.endsWithPersonSuffix(word), isCoveredByCommonWords(word) {
             return Reason.commonPhrase
         }
         if isVerbHead(row) { return Reason.verbHead }
         if isNameFragment(row) { return Reason.nameFragment }
+        if isTitleFragment(row) { return Reason.titleFragment }
         return nil
     }
 
@@ -160,5 +175,27 @@ struct LocalNameFilterJunkRules {
         guard categories[base] == .person, let baseCount = rowCounts[base], baseCount >= Rules.nameFragmentBaseMinCount,
               Double(row.count) < Rules.nameFragmentRatio * Double(baseCount) else { return false }
         return !setup.isPersonSuffix(word.suffix(1)) && !setup.isPersonSuffix(word.suffix(2))
+    }
+
+    /// L25 `len(w) >= 3 and w.startswith(QUANT_HEAD)`.
+    private static func hasQuantityHead(_ word: Word) -> Bool {
+        guard word.count >= Rules.quantityHeadMinLength else { return false }
+        return Rules.quantityHeads.contains { head in
+            head.count <= word.count && word.slice(0, head.count) == head
+        }
+    }
+
+    /// L24 `title_fragment(r)`: `(w[-1] + c) in PERSON_SUFFIXES or (w[-2:] + c) in PERSON_SUFFIXES`.
+    private func isTitleFragment(_ row: Row) -> Bool {
+        let word = row.word
+        guard row.category == .person, word.count >= 2, let longer = extensions[word] else { return false }
+        let lastOne = word.suffix(1).scalars
+        let lastTwo = word.suffix(2).scalars
+        for (last, count) in longer where Double(count) >= Rules.titleFragmentRatio * Double(row.count) {
+            if setup.isPersonSuffix(Word(scalars: lastOne + [last])) || setup.isPersonSuffix(Word(scalars: lastTwo + [last])) {
+                return true
+            }
+        }
+        return false
     }
 }

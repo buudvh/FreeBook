@@ -71,6 +71,11 @@ struct LocalNameFilterRuleChecker {
         if Double(occurrences.glueRight[index]) >= LocalNameFilterRules.glue * total {
             if isPersonLike || status(term.dropLast(extra)) == .known { return Reason.glueRight }
         }
+        // L23 (v3, 2026-11-28): địa danh / tổ chức mà chữ cuối (đuôi) hầu như luôn dính chữ sau thành từ ⇒ cắt ngang một
+        // từ (先生帮|忙, 周围海|边, 风暴教|会) — dù phần trước đuôi không phải tên đã có.
+        if v3, isPlaceLike, Double(occurrences.glueRight[index]) >= LocalNameFilterRules.glueStrong * total {
+            return Reason.glueRightStrong
+        }
         if isPlaceLike {
             for start in stride(from: 1, to: term.count - extra, by: 1) {
                 guard let tail = term.dropFirst(start) else { continue }

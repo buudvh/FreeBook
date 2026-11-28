@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1134] - 2026-11-28
+
+### feat: lọc name local thêm luật L23 đến L25 bỏ mảnh cắt ngang từ, tên cắt mất danh xưng và cụm mở đầu bằng lượng từ
+
+- Anh Bửu để Javis tự chọn ("tự chọn đi, cái nào bạn thấy ổn nhất") sau khi trình số đo Python; chọn L23 + L24 + phần lượng từ của L25, bỏ phần "số + 大" vì nó trúng cả tên nhóm (八大天君, 四大圣岛). Chép đúng bản tham chiếu `lacpipe.py` / `local_name_filter2.py`; chỉ đường có model LAC.
+- L23 `glue_right_strong` (bộ luật, `LocalNameFilterRuleChecker`, ngay sau `glue_right`, chỉ khi `rulesV3` — đường lùi "chỉ bộ luật" không đổi): địa danh / tổ chức mà chữ cuối dính chữ ngay sau thành từ VP / danh xưng ở ≥ 80 % số lần ⇒ cụm cắt ngang một từ, bỏ dù phần trước đuôi không phải tên đã có — 先生帮 (帮忙), 风暴教 (教会), 周围海 (海边), 临济城城, 极乐宗门 (门下 / 门人), 守关军 (军士 / 军官), 马盛派 (派出).
+- L24 `title_fragment` (`LocalNameFilterJunkRules`, xét sau cùng, chỉ name chưa có): Nhân danh `w` có hàng `w + c` xuất hiện ≥ 80 % số lần của `w` mà chữ cuối hoặc hai chữ cuối của `w` + `c` là hậu tố Nhân danh ⇒ tên bị cắt mất danh xưng — 萧太 (萧太上), 离乱天 (离乱天君), 封太 / 贝太 / 钟太 / 冯太 / 葛太 (…太上), 曜古天 (曜古天君); tên đủ đều còn trong danh sách. Tra bằng chỉ mục `w` ⇒ các hàng `w + c` dựng một lần thay vòng quét cả bảng của Python.
+- L25 `quantity_head` (`LocalNameFilterJunkRules`, ngay sau L19, chỉ name chưa có): name ≥ 3 chữ mở đầu bằng lượng từ số đông 许多 诸多 众多 一众 无数 各大 所有 一些 这些 那些 其他 其余 — 许多大家族, 诸多大宗门, 一众江湖.
+- Tên lý do y Python (`glue_right_strong` vào `luật bỏ […]`, `title_fragment` / `quantity_head` vào `bỏ […]`).
+- Bản Python trên 11 truyện: bỏ thêm 30 hàng (đều rác / mảnh), không thêm, không đổi nghĩa; không name đã có nào bị mất. Đo bắt nhầm trên tên đã có: L24 trúng 1 (洪太 — trong truyện là mảnh của 洪太上), L25 trúng 0; L23 trúng 43 ứng viên đã có của bộ luật nhưng gần hết là mảnh đúng ngữ cảnh (柳宗 = 柳宗主, 炼器宗 = 炼器宗师, 林家族 = 林家族人) và hàng đã có của bộ luật vốn không hiện. Danh sách "Không phải name" của anh: 32 / 81 cụm (trước 31); 49 cụm còn lại cùng hình dạng với tên thật — các luật thử thêm đều nhầm tên đã có nên không làm.
+- `.claude/rules/translation.md`: ghi đợt 3 và các luật đã thử rồi gạt.
+- Chưa build (máy Windows); chưa thử trên máy.
+
 ## [1.3.1133] - 2026-11-28
 
 ### docs: ghi chú lọc name local cho sáu luật chặn rác L17 đến L22 và lịch sử lọc ghi cả lần không thành
@@ -452,14 +465,3 @@ mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Màn duyệt —
   chọn; sheet giữ scrollDismissesKeyboard. Thẻ phải là con trực tiếp của ScrollView của ReaderAINameReviewSheet.
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1104] - 2026-11-27
-
-### feat: lọc name local có danh sách họ riêng, thêm họ 洛 và 玉, chép một lần họ đã sửa ở danh sách họ của rule dịch nhanh
-
-- Danh sách họ riêng của Lọc name local (L13, plan 2026-11-27-phan-loai-name, anh Bửu: "Màn quản lý họ riêng cho lọc luôn"): bộ lọc **chỉ** đọc danh sách mới (`LocalNameFilterDictionaries.capture` ⇒ `QuickTranslationSurnameStore.nameFilter.lookupTable()`, đổi đúng một dòng); token `<ho>` của rule dịch nhanh giữ Danh sách họ cũ ⇒ hai danh sách độc lập, sửa bên nào không đổi bên kia.
-- Dùng lại store, không chép code: `QuickTranslationSurnameStore` nhận cấu hình `QuickTranslationSurnameStoreConfiguration` (tên file gốc, khoá `UserDefaults` lớp riêng, nhãn log, có đi vào bộ dịch không, chép một lần từ đâu). Bản gốc thành thuộc tính của từng bản (trước là `static let` dùng chung). `shared` = cấu hình `.quickTranslation` (`ChineseSurnames.txt`, `quickTranslateSurnameOverrides`, ghi vẫn dọn cache dịch + báo rule đổi) — hành vi như cũ. `nameFilter` = `NameFilterSurnames.txt` + khoá `localNameFilterSurnameOverrides` (chữ thường ⇒ `BackupSettingsArchiver` tự gói); ghi **không** dọn cache dịch / không báo rule đổi (danh sách không vào bộ dịch, như `LocalNameFilterSuffixStore`); có hiệu lực từ lần "Bắt đầu lọc" sau.
-- File gốc mới `Sources/Resources/Translation/NameFilterSurnames.txt` = bản sao `ChineseSurnames.txt` (683 khoá) + `洛=Lạc`, `玉=Ngọc` cuối mục "Họ đơn bổ sung" ⇒ 685 khoá (585 đơn, 100 kép); chú thích đầu file ghi đúng vai trò. 洛 / 玉 không thuộc tập hư từ bộ lọc tự bỏ.
-- Chép một lần (anh chọn "chép họ đã sửa"): lần đầu bản `nameFilter` được tạo (mở màn Họ hoặc lượt lọc đầu), nếu cờ `localNameFilterSurnameSeeded` chưa có ⇒ đặt cờ (cả khi không có gì để chép — "Khôi phục mặc định" sau này không làm chép lại); khoá lớp riêng của bộ lọc chưa có và lớp riêng của `<ho>` có ⇒ chép sang, áp lại lên bản gốc mới (`QuickTranslationSurnameOverrides.rebased(onto:)`: họ tự thêm trùng âm với bản gốc mới như 洛=Lạc không còn tính là phần sửa). Đặt trong `init` của store thay cho bootstrap lúc mở app: `static let` bảo đảm chạy một lần, an toàn luồng, trước mọi lượt đọc (kể cả từ task nền của bộ lọc), không đụng `FreeBookApp` / `MainTabView`. Cờ chữ thường ⇒ Backup gói cùng lớp riêng. Log `📋 [NameFilterSurname]`.
-- Màn quản lý: `QuickTranslationSurnameListView` nhận `Context` (store, tiêu đề, tên file xuất, dòng "?", chữ khi trống; mặc định `.quickTranslation` ⇒ hai chỗ mở cũ không đổi); `QuickTranslationSurnameEditorSheet` nhận `store` (trùng khoá xét đúng danh sách đang sửa). View mới `LocalNameFilterSurnameListView()` (`Views/Reader/NameFilter/Lists/`, tiêu đề "Họ", xuất `NameFilterSurnames.txt`, đủ Sửa từ / nhập file 3 cách / xuất / khôi phục mặc định / tắt / xoá) để session giao diện nối hàng "Họ" vào sheet Lọc name local — sheet chưa có hàng này.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
