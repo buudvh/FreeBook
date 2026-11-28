@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5; nghĩa tên tây huyễn khung 1): Gói tạm chưa
-/// lưu (`+Drafts`, chỉ khi có), Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N lần", "Ưu tiên tên Latin"
-/// theo truyện), Danh sách.
+/// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5; nghĩa tên tây huyễn khung 1; phân loại name
+/// khung 5): Gói tạm chưa lưu (`+Drafts`, chỉ khi có), Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N
+/// lần", "Độ dài name", "Ưu tiên tên Latin" theo truyện), Danh sách (Hậu tố, Tiền tố, Họ, Không phải name).
 ///
 /// Phạm vi chép cách của `ReaderAIBatchPromptSheet` (chương đang đọc / chương đầu tiên / "Chọn chương…" qua
 /// `ReaderAINameScanChapterPickerView`, "Số lượng chương" `ChapterLimitPicker` mặc định Tất cả), bỏ "Tiếp nối", và
@@ -128,6 +128,8 @@ extension LocalNameFilterSheet {
                         .foregroundColor(.secondary)
                 }
 
+                lengthRow
+
                 HelpLabeledToggle(
                     title: "Ưu tiên tên Latin",
                     help: [
@@ -144,28 +146,67 @@ extension LocalNameFilterSheet {
                     )
                 )
             } header: {
-                SectionHelpHeader("Tuỳ chọn", paragraphs: ["Chỉ giữ name xuất hiện từ chừng ấy lần trở lên trong các chương đã chọn. Lọc ít chương thì nên hạ xuống 2."])
+                SectionHelpHeader("Tuỳ chọn", paragraphs: [
+                    "**Ít nhất N lần**: chỉ giữ name xuất hiện từ chừng ấy lần trở lên trong các chương đã chọn. Lọc ít chương thì nên hạ xuống 2.",
+                    "**Độ dài name**: chỉ giữ name dài trong khoảng đã kéo, đếm theo chữ Hán (không tính dấu ·), áp cho mọi name kể cả name đã có. Đầu phải ở 10+ là không giới hạn; mặc định 2 – 10+ giữ mọi name như trước. Lựa chọn được nhớ cho lần lọc sau."
+                ])
             }
 
             Section {
-                NavigationLink {
-                    LocalNameFilterSuffixListView()
-                } label: {
-                    LabeledContent("Đuôi địa danh, tổ chức, thuật ngữ", value: "\(suffixCount)")
+                listRow("Hậu tố", count: suffixCount) {
+                    LocalNameFilterSuffixListView(flavor: .suffix)
                 }
-                NavigationLink {
+                listRow("Tiền tố", count: prefixCount) {
+                    LocalNameFilterSuffixListView(flavor: .prefix)
+                }
+                listRow("Họ", count: surnameCount) {
+                    LocalNameFilterSurnameListView()
+                }
+                listRow("Không phải name", count: blockedCount) {
                     LocalNameFilterBlocklistView()
-                } label: {
-                    LabeledContent("Không phải name", value: "\(blockedCount)")
                 }
             } header: {
-                SectionHelpHeader("Danh sách", paragraphs: ["Dùng chung cho mọi truyện. Đuôi địa danh, tổ chức, thuật ngữ: chỉ dùng để **dịch nghĩa** name không phải tên người — phần tên riêng + nghĩa của đuôi (落霞镇 ⇒ Lạc Hà trấn, 玄真观 ⇒ Huyền Chân quán); việc dò name dùng bộ đuôi cố định trong app. Số bên phải là số đuôi trong danh sách. Không phải name: cụm đã loại, lần lọc sau không hiện nữa."])
+                SectionHelpHeader("Danh sách", paragraphs: [
+                    "Dùng chung cho mọi truyện. Số bên phải là số mục trong từng danh sách.",
+                    "**Hậu tố**: ghép nghĩa name theo loại — địa danh, tổ chức, thuật ngữ (落霞镇 ⇒ Lạc Hà trấn) và danh xưng sau tên người, loại Nhân danh (陈长老 ⇒ Trần trưởng lão). **Tiền tố**: 老 / 小… đứng trước tên Latin (老尼尔 ⇒ lão Neil). Hai danh sách này chỉ dùng để dịch nghĩa; việc dò name dùng bộ hậu tố cố định trong app.",
+                    "**Họ**: họ bộ lọc dùng để nhận ra tên người và đọc âm họ, riêng với Danh sách họ của rule dịch nhanh.",
+                    "**Không phải name**: cụm đã loại, lần lọc sau không hiện nữa."
+                ])
             }
         }.glassSheetRows() }
         // `onAppear` của gốc chạy lại mỗi lần quay về từ màn quản lý ⇒ số + công tắc Latin luôn mới.
         .onAppear { refreshListCounts() }
         .task { await loadChapters() }
         .task { await loadDrafts() }
+    }
+
+    /// Hàng "Độ dài name" (L15, mockup khung 5): tiêu đề + khoảng đang chọn bên phải ("2 – 10+ chữ"), thanh kéo hai đầu.
+    private var lengthRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text("Độ dài name")
+                Spacer(minLength: 8)
+                Text(verbatim: LocalNameFilterLengthRangeSlider.rangeText(lower: minLengthSetting, upper: maxLengthSetting))
+                    .monospacedDigit()
+                    .foregroundColor(.secondary)
+            }
+            LocalNameFilterLengthRangeSlider(lower: $minLengthSetting, upper: $maxLengthSetting)
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Một hàng của mục "Danh sách": tên + số mục (kiểu Việt, "1.299") + mũi tên, đẩy màn quản lý vào `NavigationStack`
+    /// của sheet.
+    private func listRow<Destination: View>(
+        _ title: String,
+        count: Int,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            LabeledContent(title, value: LocalNameFilterAffixKindFilterBar.formattedCount(count))
+        }
     }
 
     private func noticeRow(_ notice: LocalNameFilterSession.Notice) -> some View {
@@ -264,6 +305,8 @@ extension LocalNameFilterSheet {
 
     private func refreshListCounts() {
         suffixCount = LocalNameFilterSuffixStore.shared.count
+        prefixCount = LocalNameFilterPrefixStore.shared.count
+        surnameCount = QuickTranslationSurnameStore.nameFilter.summary().total
         blockedCount = LocalNameFilterBlocklistStore.shared.count
         prefersLatinNames = LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)
     }

@@ -7,8 +7,9 @@ import SwiftUI
 /// Ba bước trong **một** sheet, theo `LocalNameFilterSession.phase`:
 /// 1. Chọn phạm vi (`+Setup`): như "Lọc name nhiều chương" của AI (`ReaderAIBatchPromptSheet`) bỏ "Tiếp nối"; không đọc /
 ///    ghi mặc định của sheet AI. "Gói tạm chưa lưu" ở đầu (`+Drafts`, chỉ khi có gói), "Loại cần tìm" (`+Categories`,
-///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3) + "Ưu tiên tên Latin" (theo truyện,
-///    `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở hai màn quản lý dùng chung mọi truyện.
+///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3), "Độ dài name" (thanh kéo hai đầu, nhớ bằng `@AppStorage`) +
+///    "Ưu tiên tên Latin" (theo truyện, `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở bốn màn quản lý dùng
+///    chung mọi truyện (Hậu tố, Tiền tố, Họ, Không phải name).
 ///    Không có hàng tải model: chưa có model thì bước 2 tự tải trước.
 /// 2. Đang lọc (`LocalNameFilterProgressView`): "Tải model" (lần đầu) rồi "Phân tích chương", name hiện dần; "Dừng" =
 ///    phân tích nốt phần đã đọc rồi sang bước 3. Lỗi ⇒ "Quay lại" / "Thử lại" (đúng cấu hình cũ).
@@ -52,9 +53,15 @@ struct LocalNameFilterSheet: View {
     @State var minCount: Int = 3
     /// "Ưu tiên tên Latin" của truyện này — đọc khi mở / quay về, ghi ngay khi bấm (`LocalNameFilterLatinPreferenceStore`).
     @State var prefersLatinNames: Bool = false
-    /// Số đuôi trong danh sách / số cụm "Không phải name" — đọc lại mỗi khi quay về từ màn quản lý.
+    /// Số mục của bốn danh sách (hậu tố, tiền tố, họ, "Không phải name") — đọc lại mỗi khi quay về từ màn quản lý.
     @State var suffixCount: Int = 0
+    @State var prefixCount: Int = 0
+    @State var surnameCount: Int = 0
     @State var blockedCount: Int = 0
+    /// "Độ dài name" (plan 2026-11-27-phan-loai-name L15): ít nhất / nhiều nhất N chữ, 2…10; nhiều nhất 10 = "10+" (không
+    /// giới hạn). Mặc định 2 – 10+ ⇒ kết quả như trước. Giá trị hỏng được kẹp khi đọc (`LocalNameFilterLengthRangeSlider`).
+    @AppStorage("localNameFilterMinLength") var minLengthSetting: Int = LocalNameFilterLengthRangeSlider.bounds.lowerBound
+    @AppStorage("localNameFilterMaxLength") var maxLengthSetting: Int = LocalNameFilterLengthRangeSlider.bounds.upperBound
     /// "Loại cần tìm" (`+Categories`): `rawValue` các nhóm nối bằng dấu phẩy; rỗng / hỏng = cả bốn nhóm.
     @AppStorage("localNameFilterCategories") var categoriesRaw: String = ""
     /// Gói tạm chưa lưu của truyện (`+Drafts`), ghi gần nhất trước; nạp ngoài main khi mở sheet.
@@ -150,16 +157,20 @@ struct LocalNameFilterSheet: View {
         .background(.bar)
     }
 
-    /// Chụp cấu hình từ hai danh sách + "Loại cần tìm" đúng lúc bấm, rồi giao cho `session` (lấy chương đã tải theo phạm
-    /// vi + chạy).
+    /// Chụp cấu hình từ các danh sách (hậu tố, tiền tố, "Không phải name") + "Loại cần tìm" + "Độ dài name" đúng lúc bấm,
+    /// rồi giao cho `session` (lấy chương đã tải theo phạm vi + chạy). Danh sách họ do bộ lọc tự đọc lúc chạy.
     private func startFilter() {
         guard canStart else { return }
+        let length = LocalNameFilterLengthRangeSlider.clamped(lower: minLengthSetting, upper: maxLengthSetting)
         let configuration = LocalNameFilter.Configuration(
             minCount: minCount,
             suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(),
             blockedTerms: LocalNameFilterBlocklistStore.shared.terms(),
             categories: selectedCategories,
-            prefersLatinNames: prefersLatinNames
+            prefersLatinNames: prefersLatinNames,
+            prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(),
+            minLength: length.lowerBound,
+            maxLength: length.upperBound >= LocalNameFilterLengthRangeSlider.bounds.upperBound ? nil : length.upperBound
         )
         let numbers = Dictionary((chapters ?? []).map { ($0.index, $0.number) }, uniquingKeysWith: { first, _ in first })
         session.start(LocalNameFilterSession.StartRequest(

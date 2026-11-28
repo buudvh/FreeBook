@@ -318,10 +318,11 @@ final class LocalNameFilterSession {
             scopeLabel: LocalNameFilterDraft.scopeLabel(chapterNumbers: Array(numbers)),
             chapterCount: snapshot.chaptersRead,
             autoMeanings: Self.autoMeanings(of: snapshot.names),
-            // Nghĩa lúc lọc ứng với đúng danh sách đuôi + công tắc Latin của lượt này.
+            // Nghĩa lúc lọc ứng với đúng danh sách hậu tố + tiền tố + công tắc Latin của lượt này.
             meaningSignature: LocalNameFilterMeaningComposer.signature(
                 suffixes: request.configuration.suffixes,
-                prefersLatinNames: request.configuration.prefersLatinNames
+                prefersLatinNames: request.configuration.prefersLatinNames,
+                prefixes: request.configuration.prefixes
             )
         )
         reviewSuffixContext = makeReviewSuffixContext(bookId: bookId, autoMeanings: reviewContext?.autoMeanings)

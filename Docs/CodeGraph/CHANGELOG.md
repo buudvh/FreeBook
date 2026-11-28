@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1109] - 2026-11-28
+
+### feat: sheet lọc name local có danh sách Tiền tố và Họ, thanh kéo hai đầu chọn độ dài name
+
+Plan 2026-11-27-phan-loai-name L10, L13, L15 (anh Bửu: "Thêm chọn min max số từ ở màn lọc name, dạng kéo", "step min max
+1 thôi"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 5.
+
+- Mục "Danh sách": Hậu tố · Tiền tố · Họ (`LocalNameFilterSurnameListView`, số = `QuickTranslationSurnameStore.nameFilter`)
+  · Không phải name, số mục kiểu Việt (1.299), đọc lại mỗi lần quay về; giải thích "?" viết lại cho bốn danh sách.
+- Mục "Tuỳ chọn": hàng "Độ dài name" dưới "Ít nhất N lần" — thanh kéo hai đầu tự dựng `LocalNameFilterLengthRangeSlider`
+  (một `DragGesture`, nấc 1 chữ 2…10, đầu phải 10 = "10+" không giới hạn, hai núm trùng nhau được, chọn núm theo hướng
+  kéo khi trùng; mỗi núm là phần tử trợ năng riêng có `accessibilityAdjustableAction`; rung nhẹ mỗi nấc), số bên phải
+  "2 – 10+ chữ" / "3 – 6 chữ"; nhớ bằng `@AppStorage` `localNameFilterMinLength` / `localNameFilterMaxLength`.
+- "Bắt đầu lọc" truyền `prefixes` (danh sách Tiền tố), `minLength`, `maxLength` (10+ ⇒ `nil`) vào
+  `LocalNameFilter.Configuration`; dấu nghĩa của gói tạm tính theo đúng danh sách tiền tố của lượt lọc.
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1108] - 2026-11-28
 
 ### feat: màn Sửa từ của màn duyệt lọc name local có hàng Tiền tố và Hậu tố cho mọi name, hiện đủ mục nằm trong cụm
@@ -397,13 +415,3 @@ Phần "model LAC bằng Swift" của đợt Lọc name local bằng LAC (anh B�
 - Đối chiếu trên PC bằng bản Python chép dòng-dòng phần Swift (không commit): golden 203 / 203 trùng cả bốn bước; 19.749 dòng truyện trùng tách từ + id 100%; 2.000 dòng chạy đủ mạng lệch nhãn 2 dòng (embedding fp16, như lúc xuất).
 - Giấy phép Apache-2.0 của LAC ở Docs/ThirdParty/LAC-LICENSE.txt; công cụ xuất model Tools/lac-export/ (export_lac.py, lac_shim.py, bản giấy phép).
 - check_architecture.py chỉ còn violation cũ JSDom.swift. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
-
-## [1.3.1082] - 2026-11-27
-
-### refactor: hợp đồng lọc name local có loại Thuật ngữ, bốn nhóm name và cửa vào model LAC
-
-Bước đầu của đợt "Lọc name local bằng LAC" (anh Bửu duyệt 2026-11-27, plan `Docs/Plans/2026-11-27-loc-name-lac.md`, mockup https://claude.ai/artifact/Tx6oQ2Xd7KeaEybnnZ3cQq): chốt kiểu dữ liệu chung trước để ba phần (model LAC, bộ lọc + danh sách, giao diện + gói tạm) làm song song.
-
-- `LocalNameFilter`: `Kind.term` (thuật ngữ); nhóm `Category` (Nhân danh / Địa danh / Tổ chức / Thuật ngữ) — `Kind.category`, `label` theo nhóm (tông môn + họ tộc ⇒ "Tổ chức"); `SuffixKind.term` + `SuffixKind.category`; `Configuration.categories` ("Loại cần tìm", mặc định cả bốn); `Event.preparingModel(fraction:)`; `Snapshot.knownCount` thay `hiddenKnownCount` — name đã có không còn bị ẩn, màn duyệt gắn badge NE / VP và bỏ chọn sẵn như luồng AI.
-- `NameFilter/NER/`: `LACToken`, giao thức `LACTagging` (một dòng ⇒ các từ + nhãn, an toàn đa luồng), `LACModelError`, `LACModel.prepare(progress:)` (bản giữ chỗ). Model đã đẩy lên `datasets/raikiri1498/vietpharse` thư mục `lac/`, commit `73bb76d4`.
-- Commit này một mình **chưa biên dịch được** (các `switch` trên `Kind` / `SuffixKind` / `Event` chưa có nhánh mới) — các phần sau của đợt bổ sung, chỉ push khi đủ.
