@@ -72,7 +72,10 @@ extension DictEntryEditSheet {
         guard let listMode, saveAction != nil, !isLoadingMeaning, listValidationError == nil else { return }
         let key = saveTargetKey
         if showsMeaningRows, trimmedMeaning.isEmpty { return }
-        if let error = listMode.save(key, showsMeaningRows ? trimmedMeaning : "", listReplacingKey) {
+        let value = showsMeaningRows ? trimmedMeaning : ""
+        // Nơi mở cần hỏi lại trước (`DictEntryEditListMode.interceptSave`) ⇒ nó tự lưu + đóng sheet khi người dùng đồng ý.
+        if listMode.interceptSave?(key, value, listReplacingKey) == true { return }
+        if let error = listMode.save(key, value, listReplacingKey) {
             listSaveError = error
             return
         }

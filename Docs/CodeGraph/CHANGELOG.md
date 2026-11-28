@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1115] - 2026-11-28
+
+### feat: tiền tố hậu tố riêng truyện ở màn Sửa từ có cụm R | C, màn quản lý tiền tố hậu tố của name và chip phạm vi ở danh sách
+
+Giao diện cho kho tiền tố / hậu tố riêng truyện (plan "Tiền tố hậu tố riêng truyện" mục B6, B7, C9; mockup bản 3 https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M2–M6, anh Bửu duyệt). Lõi (kho riêng + API phạm vi) đã có ở commit trước.
+
+- Màn Sửa từ chế độ danh sách có thêm hai chỗ cắm (`DictEntryEditListMode`): `caseRowTrailing` (phần đặt cuối hàng aa…AA) và `interceptSave` (nơi mở nhận việc lưu để hỏi lại trước). Các chế độ khác không đổi.
+- Cụm **R | C** `DictEntryEditScopeToggle` (kiểu nút đoạn R | C của panel Dịch Reader, không ghim) ở màn thêm / sửa hậu tố, tiền tố khi mở từ một truyện (`LocalNameFilterSuffixEditorSheet(bookId:)`): thêm mới mặc định R, sửa thì đúng phạm vi của mục; badge còn "Hậu tố" / "Tiền tố". Ghi qua `store.save(...scope:bookId:original:)`: C → R tạo bản riêng (bản chung giữ cho truyện khác), R → C ghi lên chung rồi xoá bản riêng — chung đã có chữ đó ⇒ hộp "Ghi đè hậu tố chung X?" trước khi ghi. "Về bản gốc" / "Nghĩa gốc" chỉ khi đang ở C. Callback lưu đổi thành `SaveRequest` (khoá, nghĩa, loại, vị trí, phạm vi, mục bị thay).
+- Hàng Tiền tố / Hậu tố ở màn Sửa từ của màn duyệt đọc danh sách hiệu lực của truyện (riêng rồi chung không trùng chữ, `LocalNameFilterAffixScopedEntry`): chip ✓ mở đúng phạm vi, ● tính trên danh sách hiệu lực, "+ X" / "+ Thêm …" mặc định R. Luật "nằm trong name" dời vào `LocalNameFilterAffixListFlavor.usablePosition` để màn quản lý dùng chung. Không có thao tác nhấn giữ.
+- Nút tròn ⚙ (dáng nút Quản lý nghĩa, màu nhấn) cuối dòng "Tiền tố" ⇒ màn **Quản lý tiền tố, hậu tố** (`LocalNameFilterAffixManagerView` + `LocalNameFilterAffixManagerGroupView`): name + âm Hán-Việt, một thẻ bốn nhóm Tiền tố · Riêng truyện / Chung, Hậu tố · Riêng truyện / Chung, chỉ mục nằm trong name (cùng luật chip ✓), nhóm rỗng "Chưa có"; chip chung bị bản riêng che thì mờ + "bị che". Chạm chip ⇒ Sửa từ của mục; ⓧ ⇒ hỏi "Xoá hậu tố X?" (dòng phụ nói phạm vi) rồi xoá; "+ Thêm" ⇒ Thêm từ với cả cụm, R | C theo nhóm. Mỗi thao tác lưu ngay, ghép lại nghĩa các name trong màn duyệt + toast "Đã thêm / Đã lưu / Đã xoá hậu tố X · ghép lại N name". Khối hàng phụ `LocalNameFilterReviewAffixRows` giữ màn quản lý và số `revision` để hai hàng đọc lại sau mỗi lần ghi.
+- Màn danh sách Hậu tố / Tiền tố mở từ sheet Lọc name local (`LocalNameFilterSuffixListView(flavor:bookId:)`) có hàng chip phạm vi "Chung N · Riêng truyện N" trên hàng chip loại; Riêng truyện thêm / sửa / xoá trên kho riêng, hàng không ghi "tự thêm"; "Khôi phục mặc định" chỉ cho Chung. Hàng của sheet ghi "1.299 · N riêng" khi truyện có mục riêng.
+
 ## [1.3.1114] - 2026-11-28
 
 ### feat: màn Sửa từ có hàng Tiền tố, Hậu tố mở vừa khít nội dung thay vì nửa màn
@@ -457,7 +469,3 @@ Phần giao diện của đợt "Lọc name local bằng LAC" (plan `Docs/Plans/
 - Sheet thiết lập có section "Gói tạm chưa lưu (N)" ở đầu (chỉ khi có gói): hàng "giờ · phạm vi", dòng 2 "N name · đang chọn M"; chạm ⇒ mở lại màn duyệt đúng trạng thái; vuốt trái ⇒ Xoá. Lưu thành công ⇒ xoá gói đó; lưu lỗi ⇒ ghi lại gói. Mở lại rồi đóng chưa Lưu ⇒ ghi đè đúng gói đó.
 - Kho theo `bookId`: `StorageUsageCategory.nameFilterDrafts` ("Gói name tạm (lọc name)"); Dọn rác nhóm "Dữ liệu của truyện đã xoá" bắt `<hash>.json` mồ côi (chung luật với ghi chú / dấu trang, `JunkPaths.nameFilterDraftsRoot` vào `allowedRoots`); Đổi nguồn chép (gộp theo id) / xoá qua `BookSourceMigrator`. Luật Dọn rác không đụng model LAC ở `translate/LAC/` (chỉ `*.partial` khi không có lượt tải).
 - Chưa làm: xoá truyện chưa xoá gói tạm (`BookStorageManager.deleteBookSideData` ngoài phạm vi phần này; tới lúc đó Dọn rác bắt file mồ côi). Chưa build được tại chỗ (Windows); `check_architecture.py` chỉ còn violation cũ `JSDom.swift`.
-
-## [1.3.1087] - 2026-11-27
-
-### feat: danh sách đuôi của lọc name local có loại Thuật ngữ, Tông môn đổi tên thành Tổ chức

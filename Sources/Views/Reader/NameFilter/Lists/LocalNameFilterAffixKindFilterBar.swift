@@ -22,13 +22,13 @@ struct LocalNameFilterAffixKindFilterBar: View {
         let counts = Dictionary(grouping: entries, by: \.kind).mapValues(\.count)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip(title: "Tất cả \(Self.formattedCount(entries.count))", isSelected: selection == nil) {
+                Self.chip(title: "Tất cả \(Self.formattedCount(entries.count))", isSelected: selection == nil) {
                     selection = nil
                 }
                 ForEach(LocalNameFilter.SuffixKind.allCases, id: \.self) { kind in
                     let count = counts[kind] ?? 0
                     if count > 0 || selection == kind {
-                        chip(
+                        Self.chip(
                             title: "\(LocalNameFilterSuffixRow.kindLabel(kind)) \(Self.formattedCount(count))",
                             isSelected: selection == kind
                         ) {
@@ -42,7 +42,8 @@ struct LocalNameFilterAffixKindFilterBar: View {
         }
     }
 
-    private func chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    /// Một chip của hàng (cũng dùng cho hàng chip phạm vi "Chung · Riêng truyện" của màn danh sách).
+    static func chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(verbatim: title)
                 .font(.subheadline)

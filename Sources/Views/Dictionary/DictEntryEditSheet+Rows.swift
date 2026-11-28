@@ -295,12 +295,14 @@ extension DictEntryEditSheet {
 
     // MARK: - aa…AA, thông báo, Cập nhật
 
+    /// aa…AA bên trái; chế độ danh sách có `caseRowTrailing` (cụm R | C) ⇒ đặt cuối hàng như panel Dịch.
     var caseButtonsView: some View {
         HStack {
             TextCaseButtonGroup(isDisabled: meaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) { style in
                 editMeaning(TextCaseFormatter.format(meaning, style: style))
             }
             Spacer(minLength: 0)
+            if let trailing = listMode?.caseRowTrailing { trailing }
         }
     }
 

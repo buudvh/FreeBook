@@ -8,13 +8,18 @@ import SwiftUI
 /// `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Xoá]`). Danh sách chỉ để
 /// ghép nghĩa — việc dò dùng bộ hậu tố cố định của app.
 ///
+/// **Mở từ một truyện** (`bookId`, 2026-11-28 — mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M6, plan mục
+/// B7): hàng chip phạm vi **"Chung N · Riêng truyện N"** trên hàng chip loại. "Riêng truyện" là chỗ xem hết mục riêng của
+/// truyện — thêm / sửa / xoá ở đó ghi kho riêng (`LocalNameFilterBookAffixStore`); màn Sửa từ có cụm R | C chọn sẵn theo chip
+/// đang chọn (đổi được: C → R tạo bản riêng, R → C đưa lên chung). "Khôi phục mặc định" chỉ áp cho Chung.
+///
 /// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng của store. Store không phát thay đổi ⇒ màn giữ bản chụp ở
-/// `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Danh sách chung mọi truyện. Toast ở đây (Service không gọi
-/// `ToastManager`).
+/// `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Toast ở đây (Service không gọi `ToastManager`).
 struct LocalNameFilterSuffixListView: View {
     typealias Entry = LocalNameFilterSuffixEntry
     typealias Flavor = LocalNameFilterAffixListFlavor
     typealias Kind = LocalNameFilter.SuffixKind
+    typealias Scope = LocalNameFilterAffixListStore.Scope
 
     /// Đích của sheet sửa; `entry == nil` = thêm mục mới.
     private struct EditorTarget: Identifiable {
@@ -23,19 +28,27 @@ struct LocalNameFilterSuffixListView: View {
     }
 
     let flavor: Flavor
+    /// Truyện đang mở; `nil` / rỗng ⇒ chỉ danh sách Chung, không có chip phạm vi.
+    let bookId: String?
 
     @State private var entries: [Entry]
+    @State private var bookEntries: [Entry]
     @State private var isCustomized: Bool
     @State private var searchText = ""
+    /// Chip phạm vi đang chọn (chỉ khi có truyện).
+    @State private var scope: Scope = .common
     /// Chip loại đang chọn; `nil` = Tất cả.
     @State private var kindFilter: Kind? = nil
     @State private var editorTarget: EditorTarget? = nil
     @State private var showingMenu = false
     @State private var confirmingReset = false
 
-    init(flavor: Flavor = .suffix) {
+    init(flavor: Flavor = .suffix, bookId: String? = nil) {
         self.flavor = flavor
+        let book = bookId.flatMap { $0.isEmpty ? nil : $0 }
+        self.bookId = book
         _entries = State(initialValue: flavor.store.entries())
+        _bookEntries = State(initialValue: book.map { flavor.store.bookStore.entries(bookId: $0) } ?? [])
         _isCustomized = State(initialValue: flavor.store.isCustomized)
     }
 
@@ -43,15 +56,21 @@ struct LocalNameFilterSuffixListView: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Phạm vi đang xem có hiệu lực (không có truyện ⇒ luôn Chung).
+    private var activeScope: Scope { bookId == nil ? .common : scope }
+
+    /// Danh sách của chip phạm vi đang chọn.
+    private var scopeEntries: [Entry] { activeScope == .book ? bookEntries : entries }
+
     /// Loại đang lọc có hiệu lực: loại đã chọn mà hết mục (vừa xoá mục cuối) ⇒ như Tất cả.
     private var activeKind: Kind? {
-        guard let kindFilter, entries.contains(where: { $0.kind == kindFilter }) else { return nil }
+        guard let kindFilter, scopeEntries.contains(where: { $0.kind == kindFilter }) else { return nil }
         return kindFilter
     }
 
     private var kindEntries: [Entry] {
-        guard let kind = activeKind else { return entries }
-        return entries.filter { $0.kind == kind }
+        guard let kind = activeKind else { return scopeEntries }
+        return scopeEntries.filter { $0.kind == kind }
     }
 
     private var matchedEntries: [Entry] {
@@ -62,23 +81,28 @@ struct LocalNameFilterSuffixListView: View {
         }
     }
 
-    /// "1.190 hậu tố" theo chip đang chọn; đang tìm ⇒ số kết quả.
+    /// "1.190 hậu tố" / "3 hậu tố riêng" theo chip đang chọn; đang tìm ⇒ số kết quả.
     private var sectionTitle: String {
         if !trimmedQuery.isEmpty {
             return "\(matchedEntries.count) kết quả cho \"\(trimmedQuery)\""
         }
-        return "\(LocalNameFilterAffixKindFilterBar.formattedCount(kindEntries.count)) \(flavor.lowercasedNoun)"
+        let count = LocalNameFilterAffixKindFilterBar.formattedCount(kindEntries.count)
+        return activeScope == .book ? "\(count) \(flavor.lowercasedNoun) riêng" : "\(count) \(flavor.lowercasedNoun)"
     }
 
     private var emptyText: String {
         if !trimmedQuery.isEmpty { return "Không có \(flavor.lowercasedNoun) nào khớp." }
-        if entries.isEmpty { return flavor.emptyListText }
+        if activeScope == .book, bookEntries.isEmpty {
+            return "Truyện này chưa có \(flavor.lowercasedNoun) riêng. Bấm + để thêm, hoặc thêm từ màn Sửa từ của màn duyệt name."
+        }
+        if scopeEntries.isEmpty { return flavor.emptyListText }
         return "Chưa có \(flavor.lowercasedNoun) loại này. Bấm + để thêm."
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            LocalNameFilterAffixKindFilterBar(entries: entries, selection: $kindFilter)
+            if bookId != nil { scopeBar }
+            LocalNameFilterAffixKindFilterBar(entries: scopeEntries, selection: $kindFilter)
 
             List { Group {
                 Section {
@@ -92,6 +116,7 @@ struct LocalNameFilterSuffixListView: View {
                         LocalNameFilterSuffixRow(
                             entry: entry,
                             noun: flavor.lowercasedNoun,
+                            showsUserAddedNote: activeScope == .common,
                             onEdit: { editorTarget = EditorTarget(entry: entry) },
                             onDelete: { delete(entry) }
                         )
@@ -121,20 +146,22 @@ struct LocalNameFilterSuffixListView: View {
             }
         }
         .sideDrawerMenu(isPresented: $showingMenu, title: flavor.noun) {
+            // Chỉ danh sách Chung có bản gốc để khôi phục.
             SideDrawerActionRow("Khôi phục mặc định", systemImage: "arrow.counterclockwise", role: .destructive) {
                 confirmingReset = true
             }
-            .disabled(!isCustomized)
+            .disabled(!isCustomized || activeScope == .book)
         }
         .sheet(item: $editorTarget) { target in
             Group {
                 LocalNameFilterSuffixEditorSheet(
                     flavor: flavor,
                     original: target.entry,
+                    originalScope: activeScope,
                     initialKind: activeKind,
-                    onSave: { key, meaning, kind, position, replacing in
-                        save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing)
-                    },
+                    bookId: bookId,
+                    initialScope: activeScope,
+                    onSave: { request in save(request) },
                     onRestoreBundled: { restoreBundled(target.entry) }
                 )
             }
@@ -148,32 +175,61 @@ struct LocalNameFilterSuffixListView: View {
             Button("Khôi phục mặc định", role: .destructive) { resetToDefaults() }
             Button("Hủy", role: .cancel) {}
         } message: {
-            Text("Mọi \(flavor.lowercasedNoun) đã thêm, sửa hoặc xoá sẽ mất.")
+            Text(verbatim: bookId == nil
+                 ? "Mọi \(flavor.lowercasedNoun) đã thêm, sửa hoặc xoá sẽ mất."
+                 : "Mọi \(flavor.lowercasedNoun) chung đã thêm, sửa hoặc xoá sẽ mất. Danh sách riêng của truyện giữ nguyên.")
         }
         .onAppear { reload() }
+    }
+
+    /// "Chung 1.299 · Riêng truyện 3" (mockup M6) — cùng kiểu chip với hàng chip loại ngay dưới.
+    private var scopeBar: some View {
+        HStack(spacing: 8) {
+            LocalNameFilterAffixKindFilterBar.chip(
+                title: "Chung \(LocalNameFilterAffixKindFilterBar.formattedCount(entries.count))",
+                isSelected: activeScope == .common
+            ) {
+                scope = .common
+            }
+            LocalNameFilterAffixKindFilterBar.chip(
+                title: "Riêng truyện \(LocalNameFilterAffixKindFilterBar.formattedCount(bookEntries.count))",
+                isSelected: activeScope == .book
+            ) {
+                scope = .book
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, HeaderMetrics.horizontalMargin)
+        .padding(.top, 6)
     }
 
     // MARK: - Thao tác
 
     private func reload() {
         entries = flavor.store.entries()
+        bookEntries = bookId.map { flavor.store.bookStore.entries(bookId: $0) } ?? []
         isCustomized = flavor.store.isCustomized
     }
 
-    /// Lưu từ sheet: store kiểm lại luật + trùng khoá trên dữ liệu mới nhất. `nil` = đã lưu; chuỗi = lỗi để sheet hiện.
-    private func save(key: String, meaning: String, kind: Kind,
-                      position: LocalNameFilter.MeaningPosition, replacing originalKey: String?) -> String? {
-        let error = flavor.store.save(key: key, meaning: meaning, kind: kind, position: position, replacing: originalKey)
+    /// Lưu từ sheet theo luật phạm vi của lõi: store kiểm lại luật + trùng khoá trên dữ liệu mới nhất. `nil` = đã lưu; chuỗi
+    /// = lỗi để sheet hiện.
+    private func save(_ request: LocalNameFilterSuffixEditorSheet.SaveRequest) -> String? {
+        let error = request.save(in: flavor.store, bookId: bookId ?? "")
         reload()
         if let error { return error }
-        let verb = originalKey == nil ? "Đã thêm" : "Đã lưu"
-        ToastManager.shared.show(message: "\(verb) \(flavor.lowercasedNoun) \(key)", type: .success)
+        let verb = request.original == nil ? "Đã thêm" : "Đã lưu"
+        let scopeNote = bookId == nil ? "" : (request.scope == .book ? " (riêng truyện)" : " (chung)")
+        ToastManager.shared.show(message: "\(verb) \(flavor.lowercasedNoun) \(request.key)\(scopeNote)", type: .success)
         return nil
     }
 
-    /// Xoá một chạm như danh sách họ; mục gốc đã xoá thêm lại được, hoặc "Khôi phục mặc định".
+    /// Xoá một chạm như danh sách họ, ở phạm vi đang xem: Chung ⇒ mọi truyện (mục gốc đã xoá thêm lại được, hoặc "Khôi phục
+    /// mặc định"); Riêng truyện ⇒ chỉ truyện này.
     private func delete(_ entry: Entry) {
-        report(flavor.store.delete(key: entry.key), success: "Đã xoá \(flavor.lowercasedNoun) \(entry.key)")
+        let target = activeScope
+        let error = flavor.store.delete(key: entry.key, scope: target, bookId: bookId ?? "")
+        let scopeNote = target == .book ? " riêng" : ""
+        report(error, success: "Đã xoá \(flavor.lowercasedNoun)\(scopeNote) \(entry.key)")
     }
 
     private func restoreBundled(_ entry: Entry?) {

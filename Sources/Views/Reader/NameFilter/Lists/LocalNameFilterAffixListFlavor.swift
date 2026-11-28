@@ -91,6 +91,25 @@ enum LocalNameFilterAffixListFlavor: Hashable {
         return String(view)
     }
 
+    /// Mục `key` **nằm trong** name (luật chip ✓ của `LocalNameFilterSuffixQuickRow`, cũng là luật lọc của màn Quản lý tiền
+    /// tố, hậu tố): lần xuất hiện đầu tiên còn ≥ 1 chữ phía trước (hậu tố — ở cuối hoặc giữa cụm) / phía sau (tiền tố — ở
+    /// đầu hoặc giữa cụm), khoá dài 1–6 chữ. Trả vị trí (code point); `nil` = không nằm trong (cả cụm, hậu tố chỉ nằm đầu
+    /// cụm, tiền tố chỉ nằm cuối cụm, dài quá 6 chữ).
+    func usablePosition(of key: [Unicode.Scalar], in scalars: [Unicode.Scalar]) -> Int? {
+        let length = key.count
+        guard length >= 1, length <= LocalNameFilterSuffixListParser.maxKeyLength, length < scalars.count else {
+            return nil
+        }
+        for start in 0...(scalars.count - length) where scalars[start..<(start + length)].elementsEqual(key) {
+            switch self {
+            case .suffix where start >= 1: return start
+            case .prefix where start + length <= scalars.count - 1: return start
+            default: continue
+            }
+        }
+        return nil
+    }
+
     /// Ghép mục với phần tên riêng theo đúng phía: 江海 + 市 / 老 + 尼尔.
     func word(key: String, proper: String) -> String {
         switch self {
@@ -138,13 +157,15 @@ enum LocalNameFilterAffixListFlavor: Hashable {
                 "Danh sách này **chỉ dùng để dịch nghĩa**. Name không phải tên người kết thúc bằng một hậu tố Địa danh / Tổ chức / Thuật ngữ (落霞**镇**, 天斗**帝国**, 五气**丹**) có nghĩa = phần tên riêng + nghĩa của hậu tố giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn) hoặc **trước tên** (街 = \"phố\" · trước tên ⇒ 佐特兰街 → phố Zotland).",
                 "Hậu tố **Nhân danh** là danh xưng sau tên người: lấy hậu tố dài nhất (陈太上长老 → Trần thái thượng trưởng lão, 天元圣女 → Thiên Nguyên thánh nữ). Hậu tố 1 chữ (哥, 爷…) chỉ dùng khi bộ lọc thấy ít nhất 3 tên khác nhau đứng trước nó.",
                 "Việc dò và phân loại name dùng bộ hậu tố cố định trong app, không theo danh sách này — thêm hay xoá hậu tố không làm đổi số name tìm được.",
-                "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi hậu tố đã thêm, sửa hoặc xoá."
+                "Chip **Chung** là danh sách dùng cho mọi truyện; chip **Riêng truyện** là danh sách riêng của truyện đang mở — cùng chữ thì bản riêng thắng khi ghép nghĩa truyện này. Thêm / sửa có cụm **R | C** cuối hàng aa…AA để chọn phạm vi: đổi C → R tạo bản riêng (bản chung giữ cho truyện khác), R → C đưa lên chung rồi xoá bản riêng.",
+                "\"Khôi phục mặc định\" ở menu … chỉ áp cho danh sách Chung: bỏ mọi hậu tố chung đã thêm, sửa hoặc xoá."
             ]
         case .prefix:
             return [
                 "Danh sách này **chỉ dùng để dịch nghĩa** tên Latin có tiền tố đứng trước: 老尼尔 → lão Neil, 小伊特 → tiểu Etter. Phần sau tiền tố không ra tên Latin (từ điển, hoặc máy đoán khi bật \"Ưu tiên tên Latin\") thì giữ Hán-Việt cả cụm (小鱼 → Tiểu Ngư, 老张 → Lão Trương).",
                 "Tiền tố chỉ áp cho name cùng nhóm với loại của nó: loại Nhân danh cho tên người, Địa danh / Tổ chức / Thuật ngữ cho name không phải người.",
-                "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi tiền tố đã thêm, sửa hoặc xoá."
+                "Chip **Chung** là danh sách dùng cho mọi truyện; chip **Riêng truyện** là danh sách riêng của truyện đang mở — cùng chữ thì bản riêng thắng khi ghép nghĩa truyện này. Thêm / sửa có cụm **R | C** để chọn phạm vi.",
+                "\"Khôi phục mặc định\" ở menu … chỉ áp cho danh sách Chung: bỏ mọi tiền tố chung đã thêm, sửa hoặc xoá."
             ]
         }
     }
@@ -157,13 +178,15 @@ enum LocalNameFilterAffixListFlavor: Hashable {
             return [
                 "Thêm hậu tố vào danh sách **Hậu tố** ngay từ name này: chạm một đoạn cuối gợi ý (+ 街, + 兰街…) hoặc **+ Thêm hậu tố** (mở với cả cụm, thu hẹp bằng ‹ ›). Hậu tố dài 1–6 chữ, chừa ít nhất 1 chữ phía trước, có 4 loại: Địa danh, Tổ chức, Thuật ngữ, Nhân danh.",
                 "Mọi hậu tố có sẵn nằm trong name (ở cuối hoặc giữa cụm) đều hiện ✓ — chạm để sửa. Chip xếp theo số chữ tăng dần. Nghĩa ghép theo hậu tố **dài nhất** ở cuối, cùng nhóm với name (dấu ●): 陈太上长老 ⇒ Trần thái thượng trưởng lão.",
+                "Chip lấy cả hậu tố **riêng truyện** lẫn **chung** (cùng chữ thì bản riêng thắng). Thêm mới mặc định vào danh sách riêng của truyện (**R**); chọn **C** ở cuối hàng aa…AA để dùng cho mọi truyện. Xoá hoặc xem đủ hai phạm vi ở nút ⚙ của dòng Tiền tố.",
                 "Lưu xong, các name kết thúc bằng hậu tố đó mà nghĩa vẫn do máy ghép được ghép lại nghĩa ngay; nghĩa đã tự sửa giữ nguyên."
             ]
         case .prefix:
             return [
                 "Thêm tiền tố vào danh sách **Tiền tố** ngay từ name này: chạm một đoạn đầu gợi ý (+ 老, + 老尼…) hoặc **+ Thêm tiền tố** (mở với cả cụm, thu hẹp bằng ‹ ›). Tiền tố dài 1–6 chữ, chừa ít nhất 1 chữ phía sau.",
                 "Mọi tiền tố có sẵn nằm trong name (ở đầu hoặc giữa cụm) đều hiện ✓ — chạm để sửa; dấu ● là tiền tố dùng để ghép nghĩa (dài nhất ở đầu, cùng nhóm với name). Chip xếp theo số chữ tăng dần.",
-                "Tiền tố chỉ dùng khi phần sau là tên Latin: 老尼尔 ⇒ lão Neil. Phần sau đọc Hán-Việt thì giữ nguyên cả cụm (小鱼 ⇒ Tiểu Ngư). Lưu xong, các name mở đầu bằng tiền tố đó mà nghĩa vẫn do máy ghép được ghép lại nghĩa ngay."
+                "Tiền tố chỉ dùng khi phần sau là tên Latin: 老尼尔 ⇒ lão Neil. Phần sau đọc Hán-Việt thì giữ nguyên cả cụm (小鱼 ⇒ Tiểu Ngư). Lưu xong, các name mở đầu bằng tiền tố đó mà nghĩa vẫn do máy ghép được ghép lại nghĩa ngay.",
+                "Chip lấy cả tiền tố **riêng truyện** lẫn **chung**; thêm mới mặc định **R** (riêng truyện). Nút ⚙ mở màn Quản lý tiền tố, hậu tố: bốn nhóm Riêng / Chung nằm trong name này — chạm để sửa, ⓧ để xoá, + để thêm."
             ]
         }
     }

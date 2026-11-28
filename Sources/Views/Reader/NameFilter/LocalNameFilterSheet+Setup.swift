@@ -153,11 +153,11 @@ extension LocalNameFilterSheet {
             }
 
             Section {
-                listRow("Hậu tố", count: suffixCount) {
-                    LocalNameFilterSuffixListView(flavor: .suffix)
+                listRow("Hậu tố", count: suffixCount, bookCount: suffixBookCount) {
+                    LocalNameFilterSuffixListView(flavor: .suffix, bookId: bookId)
                 }
-                listRow("Tiền tố", count: prefixCount) {
-                    LocalNameFilterSuffixListView(flavor: .prefix)
+                listRow("Tiền tố", count: prefixCount, bookCount: prefixBookCount) {
+                    LocalNameFilterSuffixListView(flavor: .prefix, bookId: bookId)
                 }
                 listRow("Họ", count: surnameCount) {
                     LocalNameFilterSurnameListView()
@@ -167,7 +167,7 @@ extension LocalNameFilterSheet {
                 }
             } header: {
                 SectionHelpHeader("Danh sách", paragraphs: [
-                    "Dùng chung cho mọi truyện. Số bên phải là số mục trong từng danh sách.",
+                    "Dùng chung cho mọi truyện. Số bên phải là số mục trong từng danh sách; Hậu tố / Tiền tố còn có danh sách **riêng của truyện này** (\"· N riêng\", chip Riêng truyện trong màn danh sách) — cùng chữ thì bản riêng thắng.",
                     "**Hậu tố**: ghép nghĩa name theo loại — địa danh, tổ chức, thuật ngữ (落霞镇 ⇒ Lạc Hà trấn) và danh xưng sau tên người, loại Nhân danh (陈长老 ⇒ Trần trưởng lão). **Tiền tố**: 老 / 小… đứng trước tên Latin (老尼尔 ⇒ lão Neil). Hai danh sách này chỉ dùng để dịch nghĩa; việc dò name dùng bộ hậu tố cố định trong app.",
                     "**Họ**: họ bộ lọc dùng để nhận ra tên người và đọc âm họ, riêng với Danh sách họ của rule dịch nhanh.",
                     "**Không phải name**: cụm đã loại, lần lọc sau không hiện nữa."
@@ -195,17 +195,20 @@ extension LocalNameFilterSheet {
         .padding(.vertical, 4)
     }
 
-    /// Một hàng của mục "Danh sách": tên + số mục (kiểu Việt, "1.299") + mũi tên, đẩy màn quản lý vào `NavigationStack`
-    /// của sheet.
+    /// Một hàng của mục "Danh sách": tên + số mục (kiểu Việt, "1.299"; có mục riêng của truyện ⇒ "1.299 · 3 riêng") + mũi
+    /// tên, đẩy màn quản lý vào `NavigationStack` của sheet.
     private func listRow<Destination: View>(
         _ title: String,
         count: Int,
+        bookCount: Int = 0,
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
-        NavigationLink {
+        let total = LocalNameFilterAffixKindFilterBar.formattedCount(count)
+        let value = bookCount > 0 ? "\(total) · \(LocalNameFilterAffixKindFilterBar.formattedCount(bookCount)) riêng" : total
+        return NavigationLink {
             destination()
         } label: {
-            LabeledContent(title, value: LocalNameFilterAffixKindFilterBar.formattedCount(count))
+            LabeledContent(title, value: value)
         }
     }
 
@@ -306,6 +309,8 @@ extension LocalNameFilterSheet {
     private func refreshListCounts() {
         suffixCount = LocalNameFilterSuffixStore.shared.count
         prefixCount = LocalNameFilterPrefixStore.shared.count
+        suffixBookCount = LocalNameFilterSuffixStore.shared.bookStore.count(bookId: bookId)
+        prefixBookCount = LocalNameFilterPrefixStore.shared.bookStore.count(bookId: bookId)
         surnameCount = QuickTranslationSurnameStore.nameFilter.summary().total
         blockedCount = LocalNameFilterBlocklistStore.shared.count
         prefersLatinNames = LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId)

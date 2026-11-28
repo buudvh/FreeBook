@@ -8,6 +8,8 @@ struct LocalNameFilterSuffixRow: View {
     let entry: LocalNameFilterSuffixEntry
     /// "hậu tố" / "tiền tố" — nhãn trợ năng của nút xoá.
     let noun: String
+    /// `false` ⇒ không ghi "tự thêm" (danh sách riêng truyện: mục nào cũng do người dùng thêm, ghi ra chỉ thêm nhiễu).
+    var showsUserAddedNote = true
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -27,7 +29,7 @@ struct LocalNameFilterSuffixRow: View {
 
     private var subtitle: String {
         var parts = [entry.meaning, Self.kindLabel(entry.kind), Self.positionLabel(entry.position)]
-        if entry.origin == .userAdded { parts.append("tự thêm") }
+        if showsUserAddedNote, entry.origin == .userAdded { parts.append("tự thêm") }
         if entry.isEdited { parts.append("đã sửa") }
         return parts.joined(separator: " · ")
     }

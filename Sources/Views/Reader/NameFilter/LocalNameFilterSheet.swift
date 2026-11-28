@@ -53,9 +53,12 @@ struct LocalNameFilterSheet: View {
     @State var minCount: Int = 3
     /// "Ưu tiên tên Latin" của truyện này — đọc khi mở / quay về, ghi ngay khi bấm (`LocalNameFilterLatinPreferenceStore`).
     @State var prefersLatinNames: Bool = false
-    /// Số mục của bốn danh sách (hậu tố, tiền tố, họ, "Không phải name") — đọc lại mỗi khi quay về từ màn quản lý.
+    /// Số mục của bốn danh sách (hậu tố, tiền tố, họ, "Không phải name") — đọc lại mỗi khi quay về từ màn quản lý. Hậu tố /
+    /// tiền tố: số Chung + số riêng của truyện này (hàng ghi "1.299 · 3 riêng").
     @State var suffixCount: Int = 0
     @State var prefixCount: Int = 0
+    @State var suffixBookCount: Int = 0
+    @State var prefixBookCount: Int = 0
     @State var surnameCount: Int = 0
     @State var blockedCount: Int = 0
     /// "Độ dài name" (plan 2026-11-27-phan-loai-name L15): ít nhất / nhiều nhất N chữ, 2…10; nhiều nhất 10 = "10+" (không

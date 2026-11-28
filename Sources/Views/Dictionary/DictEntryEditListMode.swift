@@ -33,4 +33,12 @@ struct DictEntryEditListMode {
     /// Nghĩa gợi ý cho phần đang chọn, thay cho tra nghĩa của màn (vd phiên âm viết thường của đuôi). Có ⇒ mỗi lần đổi vùng
     /// chọn ô nghĩa theo gợi ý, cho tới khi người dùng tự gõ / chạm chip (từ đó giữ chữ người dùng). Mặc định `nil`.
     var suggestedMeaning: ((_ key: String) -> String)? = nil
+    /// Phần đặt **cuối hàng aa…AA** (như cụm R | C ở panel Dịch của Reader) — vd cụm R | C của hậu tố / tiền tố lọc name
+    /// local mở từ một truyện (`DictEntryEditScopeToggle`, 2026-11-28). Mặc định `nil`.
+    var caseRowTrailing: AnyView? = nil
+    /// Nơi mở **nhận việc lưu** thay màn Sửa từ khi cần hỏi lại trước (vd chuyển hậu tố riêng lên Chung mà Chung đã có chữ
+    /// đó — ghi đè cho mọi truyện): gọi sau khi đã qua mọi luật, nhận (khoá, nghĩa, `replacing`) như `save`. Trả `true` ⇒
+    /// nơi mở đã hiện hộp hỏi và tự lưu + đóng sheet khi người dùng đồng ý; màn Sửa từ không lưu, không đóng. `false` /
+    /// `nil` ⇒ lưu như thường.
+    var interceptSave: ((_ key: String, _ meaning: String, _ replacing: String?) -> Bool)? = nil
 }
