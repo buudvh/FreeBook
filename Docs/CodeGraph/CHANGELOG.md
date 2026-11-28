@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1107] - 2026-11-28
+
+### feat: lọc name local đổi Đuôi thành Hậu tố, danh sách hậu tố có chip lọc loại và loại Nhân danh, màn Tiền tố dùng chung màn danh sách
+
+Plan 2026-11-27-phan-loai-name mục 6, 11, L10, L11 (anh Bửu: "Đuôi bây giờ gọi hậu tố đi cho đối xứng tiền tố", "Thêm
+tiền tố phải đầy đủ như hậu tố"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 4, 6, 7.
+
+- Mới `LocalNameFilterAffixListFlavor` (`.suffix` / `.prefix`): mọi chỗ khác nhau giữa danh sách "Hậu tố" và "Tiền tố" —
+  store (`LocalNameFilterSuffixStore` / `LocalNameFilterPrefixStore`), danh từ trên màn, badge "Hậu tố · chung" /
+  "Tiền tố · chung", mặc định mục mới (hậu tố: Địa danh, sau tên; tiền tố: Nhân danh, trước tên), luật "nằm cuối / đầu
+  name" khi thêm từ một name, mẫu dòng "Ví dụ", lời giải thích "?". Tên type / file giữ chữ Suffix.
+- `LocalNameFilterSuffixListView(flavor:)` dùng cho cả hai danh sách (tiêu đề "Hậu tố" / "Tiền tố"); thanh tab đổi thành
+  hàng chip lọc theo loại kèm số (`LocalNameFilterAffixKindFilterBar`: Tất cả 1.299 · Địa danh · Tổ chức · Thuật ngữ ·
+  Nhân danh, kiểu chip `ExtensionKindFilterBar`, nền chip thường mờ hợp sheet kính, số kiểu Việt); chỉ hiện loại có mục
+  (danh sách tiền tố gốc chỉ có Nhân danh). Thêm mới lấy loại của chip đang chọn.
+- `LocalNameFilterSuffixEditorSheet(flavor:)`: màn Sửa từ đủ như hậu tố cho tiền tố (hai cặp ‹ ›, token, ô nghĩa, chip
+  nghĩa gợi ý, aa…AA, Loại 4 + Nghĩa đứng + Ví dụ, tra cứu); loại thứ tư Nhân danh (ví dụ 陈 + 长老 → Trần trưởng lão),
+  tiền tố ví dụ 老尼尔 → lão Neil; thêm từ một name ⇒ "Thêm" mờ + dòng nhắc khi phần chọn không nằm cuối (hậu tố) / đầu
+  (tiền tố) name, chọn cả cụm hoặc dài quá 6 chữ. Sửa lỗi biên dịch: `switch` trên `SuffixKind` thiếu `.person`.
+- Mọi chữ "Đuôi" trên màn đổi thành "Hậu tố" (tiêu đề, số mục, ô trống, toast, trợ năng, menu …, hộp khôi phục).
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1106] - 2026-11-27
 
 ### feat: bấm Lưu ở màn duyệt name hiện popup ba cách lưu như nhập file, cả luồng AI và lọc name local
@@ -376,16 +399,3 @@ Anh Bửu thử 1.3.1080 (hết văng, 𫄸 thành một ô) và gửi ảnh: ch
 - **Ảnh hưởng** (22 file gọi hai hàm này): chuỗi đã có chữ Hán cơ bản cho kết quả y như cũ; chỉ chuỗi mà chữ Hán **toàn** thuộc khối mở rộng / tương thích mới đổi từ "để nguyên" sang "được dịch / phiên âm" (chương, TTS, phụ đề, tên truyện…); token một chữ mở rộng không có trong từ điển giờ lùi về phiên âm Hán-Việt như chữ thường.
 - `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
 - Dọn: entry 1.3.1051 chuyển sang `CHANGELOG.archive.md`.
-
-## [1.3.1080] - 2026-11-27
-
-### fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ
-
-Anh Bửu: bôi đen 玄𫄸法衣 trong Reader ⇒ Dịch ⇒ bấm "Thu hẹp bên phải" ⇒ văng app. Ba crash log `.ips` cùng một stack: trap Swift trên luồng nền, đúng chỗ `ReaderDefinitionWorker.load` dịch lại cụm sau mỗi lần thu hẹp (bản Release không có dSYM nên kết luận từ đọc code). 𫄸 (U+2B138) nằm ngoài BMP: một chữ nhưng hai đơn vị UTF-16.
-
-- **Nguyên nhân văng** — `VietPhraseTokenizer.tokenizeUncached`: chỉ số là chỉ số `Character` (`Array(text)`) nhưng trie trả độ dài khớp theo UTF-16 ⇒ mục từ điển chứa chữ ngoài BMP làm độ dài dư 1 mỗi chữ, cắt lấn sang chữ sau; cụm ngắn (panel dịch lại cụm đã thu hẹp qua `translateTerm`) thì vượt cuối mảng ⇒ sập. Sửa: chuỗi có ký tự dài ≠ 1 đơn vị thì dựng bảng offset UTF-16 từng ký tự, đổi độ dài trie ⇒ số ký tự (`characterCounts`), bỏ độ dài rơi giữa một ký tự; ngưỡng "cụm VP ≥ 2" tính theo chữ (một chữ ngoài BMP đứng lẻ từng lọt ngưỡng). Chuỗi toàn ký tự 1 đơn vị: kết quả y như cũ. Hệ quả: chương / TTS có chữ ngoài BMP khớp từ điển nay tách đúng (trước nuốt thêm chữ sau ⇒ dịch sai).
-- **Token `<hv>`** (`QuickTranslationDictionaryToken.candidates`): chỉ nhận chữ dài đúng 1 đơn vị UTF-16 — chữ ngoài BMP không còn bị capture lấy nửa cặp surrogate.
-- **Nút ‹ › nhích trọn chữ**: hàm chung mới `ComposedTextSelection` (`Sources/Common/Utils/`, dựa trên `rangeOfComposedCharacterSequence`) cho Reader (`ReaderView+Selection` — dùng chung panel Dịch / Xoá từ rác / Copy gốc), sheet Dịch truyện tranh (`ComicDefinitionSheet+Selection`) và màn Sửa từ (`DictEntryEditSheet`). Vùng chọn vẫn là `NSRange` UTF-16; chữ 1 đơn vị nhích y như trước.
-- **Hàng chữ gốc mỗi chữ một ô** (`ComposedTextSelection.cells`): panel Dịch, Xoá từ rác, Copy gốc, màn Sửa từ — 𫄸 không còn vẽ thành hai ô vỡ; chạm một ô chọn trọn chữ đó.
-- Ghi bất biến vào `.claude/rules/reader-text-pipeline.md`. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
-- Dọn: entry 1.3.1050 chuyển sang `CHANGELOG.archive.md`.

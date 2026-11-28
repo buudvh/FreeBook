@@ -1,102 +1,84 @@
 import SwiftUI
 
-/// Màn **Đuôi địa danh, tổ chức, thuật ngữ** của Lọc name local (mockup khung 5, bản LAC khung 4) — đẩy vào
-/// `NavigationStack` của sheet "Lọc name local" từ mục "Danh sách". Khuôn màn Danh sách họ
-/// (`QuickTranslationSurnameListView`): header nút quay lại + `…` (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện
-/// (chữ Hán / nghĩa), tab Tất cả / Địa danh / Tổ chức / Thuật ngữ, nút `+`
-/// nổi, hàng `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Xoá]`). Từ cách A
-/// (2026-11-27) danh sách chỉ để ghép nghĩa name không phải tên người — không còn bật / tắt; việc dò dùng bộ đuôi cố định
-/// của app.
+/// Màn **Hậu tố** / **Tiền tố** của Lọc name local (plan 2026-11-27-phan-loai-name mockup khung 6 / 7) — một màn cho cả hai
+/// danh sách, khác nhau ở `LocalNameFilterAffixListFlavor` (store, chữ, mặc định). Đẩy vào `NavigationStack` của sheet "Lọc
+/// name local" từ mục "Danh sách". Khuôn màn Danh sách họ (`QuickTranslationSurnameListView`): header nút quay lại + `…`
+/// (`.sideDrawerMenu`: Khôi phục mặc định), ô tìm luôn hiện (chữ Hán / nghĩa), hàng chip lọc theo loại kèm số
+/// (`LocalNameFilterAffixKindFilterBar`: Tất cả / Địa danh / Tổ chức / Thuật ngữ / Nhân danh), nút `+` nổi, hàng
+/// `LocalNameFilterSuffixRow` (chạm thân hàng mở màn Sửa từ `LocalNameFilterSuffixEditorSheet`, `[Xoá]`). Danh sách chỉ để
+/// ghép nghĩa — việc dò dùng bộ hậu tố cố định của app.
 ///
-/// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng (`LocalNameFilterSuffixStore`). Store không phát thay đổi ⇒ màn
-/// giữ bản chụp ở `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Danh sách chung mọi truyện. Toast ở đây (Service
-/// không gọi `ToastManager`).
+/// Bản gốc đóng trong app; mọi thao tác chỉ ghi lớp riêng của store. Store không phát thay đổi ⇒ màn giữ bản chụp ở
+/// `@State`, đọc lại sau **mọi** lần ghi và ở `onAppear`. Danh sách chung mọi truyện. Toast ở đây (Service không gọi
+/// `ToastManager`).
 struct LocalNameFilterSuffixListView: View {
     typealias Entry = LocalNameFilterSuffixEntry
-    typealias Store = LocalNameFilterSuffixStore
+    typealias Flavor = LocalNameFilterAffixListFlavor
+    typealias Kind = LocalNameFilter.SuffixKind
 
-    private enum Tab: Hashable, CaseIterable {
-        case all
-        case place
-        case sect
-        case term
-
-        var title: String {
-            kind.map(LocalNameFilterSuffixRow.kindLabel) ?? "Tất cả"
-        }
-
-        var kind: LocalNameFilter.SuffixKind? {
-            switch self {
-            case .all: return nil
-            case .place: return .place
-            case .sect: return .sect
-            case .term: return .term
-            }
-        }
-    }
-
-    /// Đích của sheet sửa; `entry == nil` = thêm đuôi mới.
+    /// Đích của sheet sửa; `entry == nil` = thêm mục mới.
     private struct EditorTarget: Identifiable {
         let id = UUID()
         let entry: Entry?
     }
 
-    private static let title = "Đuôi địa danh, tổ chức, thuật ngữ"
+    let flavor: Flavor
 
-    @State private var entries: [Entry] = Store.shared.entries()
-    @State private var isCustomized = Store.shared.isCustomized
+    @State private var entries: [Entry]
+    @State private var isCustomized: Bool
     @State private var searchText = ""
-    @State private var tab: Tab = .all
-    @State private var editorTarget: EditorTarget?
+    /// Chip loại đang chọn; `nil` = Tất cả.
+    @State private var kindFilter: Kind? = nil
+    @State private var editorTarget: EditorTarget? = nil
     @State private var showingMenu = false
     @State private var confirmingReset = false
 
-    init() {}
+    init(flavor: Flavor = .suffix) {
+        self.flavor = flavor
+        _entries = State(initialValue: flavor.store.entries())
+        _isCustomized = State(initialValue: flavor.store.isCustomized)
+    }
 
     private var trimmedQuery: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var tabEntries: [Entry] {
-        guard let kind = tab.kind else { return entries }
+    /// Loại đang lọc có hiệu lực: loại đã chọn mà hết mục (vừa xoá mục cuối) ⇒ như Tất cả.
+    private var activeKind: Kind? {
+        guard let kindFilter, entries.contains(where: { $0.kind == kindFilter }) else { return nil }
+        return kindFilter
+    }
+
+    private var kindEntries: [Entry] {
+        guard let kind = activeKind else { return entries }
         return entries.filter { $0.kind == kind }
     }
 
     private var matchedEntries: [Entry] {
         let query = trimmedQuery
-        guard !query.isEmpty else { return tabEntries }
-        return tabEntries.filter {
+        guard !query.isEmpty else { return kindEntries }
+        return kindEntries.filter {
             $0.key.contains(query) || $0.meaning.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
     }
 
-    /// "63 đuôi" theo tab đang chọn; đang tìm ⇒ số kết quả.
+    /// "1.190 hậu tố" theo chip đang chọn; đang tìm ⇒ số kết quả.
     private var sectionTitle: String {
         if !trimmedQuery.isEmpty {
             return "\(matchedEntries.count) kết quả cho \"\(trimmedQuery)\""
         }
-        return "\(tabEntries.count) đuôi"
+        return "\(LocalNameFilterAffixKindFilterBar.formattedCount(kindEntries.count)) \(flavor.lowercasedNoun)"
     }
 
     private var emptyText: String {
-        if !trimmedQuery.isEmpty { return "Không có đuôi nào khớp." }
-        if entries.isEmpty {
-            return "Danh sách đuôi đang trống: nghĩa địa danh / tổ chức / thuật ngữ sẽ chỉ là phiên âm. Bấm + để thêm."
-        }
-        return "Chưa có đuôi loại này. Bấm + để thêm."
+        if !trimmedQuery.isEmpty { return "Không có \(flavor.lowercasedNoun) nào khớp." }
+        if entries.isEmpty { return flavor.emptyListText }
+        return "Chưa có \(flavor.lowercasedNoun) loại này. Bấm + để thêm."
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Loại đuôi", selection: $tab) {
-                ForEach(Tab.allCases, id: \.self) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, HeaderMetrics.horizontalMargin)
-            .padding(.vertical, 8)
+            LocalNameFilterAffixKindFilterBar(entries: entries, selection: $kindFilter)
 
             List { Group {
                 Section {
@@ -109,23 +91,20 @@ struct LocalNameFilterSuffixListView: View {
                     ForEach(matched) { entry in
                         LocalNameFilterSuffixRow(
                             entry: entry,
+                            noun: flavor.lowercasedNoun,
                             onEdit: { editorTarget = EditorTarget(entry: entry) },
                             onDelete: { delete(entry) }
                         )
                     }
                 } header: {
-                    SectionHelpHeader(sectionTitle, paragraphs: [
-                        "Danh sách này **chỉ dùng để dịch nghĩa**: name không phải tên người kết thúc bằng một đuôi trong danh sách (落霞**镇**, 天斗**帝国**, 玄真**观**, 五气**丹**) có nghĩa = phần tên riêng + nghĩa của đuôi giữ nguyên chữ, đặt **sau tên** (落霞镇 → Lạc Hà trấn, 玄真观 → Huyền Chân quán) hoặc **trước tên** (街 = \"phố\" · trước tên ⇒ 佐特兰街 → phố Zotland).",
-                        "Việc dò và lọc name dùng bộ đuôi cố định trong app, không theo danh sách này — thêm hay xoá đuôi không làm đổi số name tìm được.",
-                        "Danh sách dùng chung mọi truyện. \"Khôi phục mặc định\" ở menu … bỏ mọi đuôi đã thêm, sửa hoặc xoá."
-                    ])
+                    SectionHelpHeader(sectionTitle, paragraphs: flavor.listHelpParagraphs.map { LocalizedStringKey($0) })
                 }
             }.glassSheetRows() }
             .listStyle(.plain)
         }
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Tìm chữ Hán hoặc nghĩa")
-        .backPageTitle(Self.title)
-        .floatingAddButton("Thêm đuôi") {
+        .backPageTitle(flavor.noun)
+        .floatingAddButton("Thêm \(flavor.lowercasedNoun)") {
             editorTarget = EditorTarget(entry: nil)
         }
         .toolbar {
@@ -138,10 +117,10 @@ struct LocalNameFilterSuffixListView: View {
                         .frame(width: HeaderMetrics.iconFrameWidth, height: HeaderMetrics.iconFrameHeight, alignment: .trailing)
                         .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Tuỳ chọn danh sách đuôi")
+                .accessibilityLabel("Tuỳ chọn danh sách \(flavor.lowercasedNoun)")
             }
         }
-        .sideDrawerMenu(isPresented: $showingMenu, title: Self.title) {
+        .sideDrawerMenu(isPresented: $showingMenu, title: flavor.noun) {
             SideDrawerActionRow("Khôi phục mặc định", systemImage: "arrow.counterclockwise", role: .destructive) {
                 confirmingReset = true
             }
@@ -150,8 +129,9 @@ struct LocalNameFilterSuffixListView: View {
         .sheet(item: $editorTarget) { target in
             Group {
                 LocalNameFilterSuffixEditorSheet(
+                    flavor: flavor,
                     original: target.entry,
-                    initialKind: tab.kind ?? .place,
+                    initialKind: activeKind,
                     onSave: { key, meaning, kind, position, replacing in
                         save(key: key, meaning: meaning, kind: kind, position: position, replacing: replacing)
                     },
@@ -160,11 +140,15 @@ struct LocalNameFilterSuffixListView: View {
             }
             .appGlassSheet()
         }
-        .confirmationDialog("Khôi phục danh sách đuôi mặc định?", isPresented: $confirmingReset, titleVisibility: .visible) {
+        .confirmationDialog(
+            "Khôi phục danh sách \(flavor.lowercasedNoun) mặc định?",
+            isPresented: $confirmingReset,
+            titleVisibility: .visible
+        ) {
             Button("Khôi phục mặc định", role: .destructive) { resetToDefaults() }
             Button("Hủy", role: .cancel) {}
         } message: {
-            Text("Mọi đuôi đã thêm, sửa hoặc xoá sẽ mất.")
+            Text("Mọi \(flavor.lowercasedNoun) đã thêm, sửa hoặc xoá sẽ mất.")
         }
         .onAppear { reload() }
     }
@@ -172,34 +156,36 @@ struct LocalNameFilterSuffixListView: View {
     // MARK: - Thao tác
 
     private func reload() {
-        entries = Store.shared.entries()
-        isCustomized = Store.shared.isCustomized
+        entries = flavor.store.entries()
+        isCustomized = flavor.store.isCustomized
     }
 
     /// Lưu từ sheet: store kiểm lại luật + trùng khoá trên dữ liệu mới nhất. `nil` = đã lưu; chuỗi = lỗi để sheet hiện.
-    private func save(key: String, meaning: String, kind: LocalNameFilter.SuffixKind,
+    private func save(key: String, meaning: String, kind: Kind,
                       position: LocalNameFilter.MeaningPosition, replacing originalKey: String?) -> String? {
-        let error = Store.shared.save(key: key, meaning: meaning, kind: kind, position: position, replacing: originalKey)
+        let error = flavor.store.save(key: key, meaning: meaning, kind: kind, position: position, replacing: originalKey)
         reload()
         if let error { return error }
-        ToastManager.shared.show(message: originalKey == nil ? "Đã thêm đuôi \(key)" : "Đã lưu đuôi \(key)", type: .success)
+        let verb = originalKey == nil ? "Đã thêm" : "Đã lưu"
+        ToastManager.shared.show(message: "\(verb) \(flavor.lowercasedNoun) \(key)", type: .success)
         return nil
     }
 
-    /// Xoá một chạm như danh sách họ; đuôi gốc đã xoá thêm lại được, hoặc "Khôi phục mặc định".
+    /// Xoá một chạm như danh sách họ; mục gốc đã xoá thêm lại được, hoặc "Khôi phục mặc định".
     private func delete(_ entry: Entry) {
-        report(Store.shared.delete(key: entry.key), success: "Đã xoá đuôi \(entry.key)")
+        report(flavor.store.delete(key: entry.key), success: "Đã xoá \(flavor.lowercasedNoun) \(entry.key)")
     }
 
     private func restoreBundled(_ entry: Entry?) {
         guard let entry, entry.bundledValue != nil else { return }
-        report(Store.shared.restoreBundledValue(key: entry.key), success: "Đã đưa đuôi \(entry.key) về bản gốc")
+        report(flavor.store.restoreBundledValue(key: entry.key),
+               success: "Đã đưa \(flavor.lowercasedNoun) \(entry.key) về bản gốc")
     }
 
     private func resetToDefaults() {
-        Store.shared.resetToDefaults()
+        flavor.store.resetToDefaults()
         reload()
-        ToastManager.shared.show(message: "Đã khôi phục danh sách đuôi mặc định", type: .success)
+        ToastManager.shared.show(message: "Đã khôi phục danh sách \(flavor.lowercasedNoun) mặc định", type: .success)
     }
 
     private func report(_ error: String?, success: String) {

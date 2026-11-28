@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1080] - 2026-11-27
+
+### fix: panel Dịch không văng app khi thu hẹp cụm có chữ Hán hiếm như 𫄸, tách từ đếm đúng chữ, nút ‹ › và hàng chữ gốc theo trọn chữ
+
+Anh Bửu: bôi đen 玄𫄸法衣 trong Reader ⇒ Dịch ⇒ bấm "Thu hẹp bên phải" ⇒ văng app. Ba crash log `.ips` cùng một stack: trap Swift trên luồng nền, đúng chỗ `ReaderDefinitionWorker.load` dịch lại cụm sau mỗi lần thu hẹp (bản Release không có dSYM nên kết luận từ đọc code). 𫄸 (U+2B138) nằm ngoài BMP: một chữ nhưng hai đơn vị UTF-16.
+
+- **Nguyên nhân văng** — `VietPhraseTokenizer.tokenizeUncached`: chỉ số là chỉ số `Character` (`Array(text)`) nhưng trie trả độ dài khớp theo UTF-16 ⇒ mục từ điển chứa chữ ngoài BMP làm độ dài dư 1 mỗi chữ, cắt lấn sang chữ sau; cụm ngắn (panel dịch lại cụm đã thu hẹp qua `translateTerm`) thì vượt cuối mảng ⇒ sập. Sửa: chuỗi có ký tự dài ≠ 1 đơn vị thì dựng bảng offset UTF-16 từng ký tự, đổi độ dài trie ⇒ số ký tự (`characterCounts`), bỏ độ dài rơi giữa một ký tự; ngưỡng "cụm VP ≥ 2" tính theo chữ (một chữ ngoài BMP đứng lẻ từng lọt ngưỡng). Chuỗi toàn ký tự 1 đơn vị: kết quả y như cũ. Hệ quả: chương / TTS có chữ ngoài BMP khớp từ điển nay tách đúng (trước nuốt thêm chữ sau ⇒ dịch sai).
+- **Token `<hv>`** (`QuickTranslationDictionaryToken.candidates`): chỉ nhận chữ dài đúng 1 đơn vị UTF-16 — chữ ngoài BMP không còn bị capture lấy nửa cặp surrogate.
+- **Nút ‹ › nhích trọn chữ**: hàm chung mới `ComposedTextSelection` (`Sources/Common/Utils/`, dựa trên `rangeOfComposedCharacterSequence`) cho Reader (`ReaderView+Selection` — dùng chung panel Dịch / Xoá từ rác / Copy gốc), sheet Dịch truyện tranh (`ComicDefinitionSheet+Selection`) và màn Sửa từ (`DictEntryEditSheet`). Vùng chọn vẫn là `NSRange` UTF-16; chữ 1 đơn vị nhích y như trước.
+- **Hàng chữ gốc mỗi chữ một ô** (`ComposedTextSelection.cells`): panel Dịch, Xoá từ rác, Copy gốc, màn Sửa từ — 𫄸 không còn vẽ thành hai ô vỡ; chạm một ô chọn trọn chữ đó.
+- Ghi bất biến vào `.claude/rules/reader-text-pipeline.md`. `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa build được tại chỗ (Windows); chưa thử trên máy.
+- Dọn: entry 1.3.1050 chuyển sang `CHANGELOG.archive.md`.
+
 ## [1.3.1079] - 2026-11-27
 
 ### fix: gạch hàng name AI không mất khi đang có lượt AI chạy, Quản lý nghĩa không ghi lại Pronouns khi không sửa, màn Thêm báo rõ khi chỉ thêm phần đang chọn

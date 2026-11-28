@@ -1,16 +1,17 @@
 import SwiftUI
 
-/// Một hàng của màn **Đuôi địa danh, tổ chức, thuật ngữ** (`LocalNameFilterSuffixListView`), khuôn
-/// `QuickTranslationSurnameRow`:
+/// Một hàng của màn **Hậu tố** / **Tiền tố** (`LocalNameFilterSuffixListView`), khuôn `QuickTranslationSurnameRow`:
 /// dòng 1 chữ Hán `.headline`, dòng 2 "nghĩa · loại · trước tên|sau tên" `.subheadline` màu phụ kèm trạng thái ("tự thêm" /
 /// "đã sửa"), icon `[Xoá]`, không icon bút chì: chạm thân hàng mở sheet sửa. Không còn nút bật / tắt (cách A, 2026-11-27:
 /// danh sách chỉ để ghép nghĩa). Không bọc cả hàng trong `Button` (List sẽ kích hoạt mọi nút); trợ năng có thao tác "Sửa".
 struct LocalNameFilterSuffixRow: View {
     let entry: LocalNameFilterSuffixEntry
+    /// "hậu tố" / "tiền tố" — nhãn trợ năng của nút xoá.
+    let noun: String
     let onEdit: () -> Void
     let onDelete: () -> Void
 
-    /// Nhãn loại — dùng chung cho tab của màn danh sách và ô Loại của sheet sửa = nhãn nhóm name của đuôi
+    /// Nhãn loại — dùng chung cho chip lọc của màn danh sách và ô Loại của sheet sửa = nhãn nhóm name của mục
     /// (`sect` hiện là "Tổ chức").
     static func kindLabel(_ kind: LocalNameFilter.SuffixKind) -> String {
         kind.category.label
@@ -54,7 +55,7 @@ struct LocalNameFilterSuffixRow: View {
                     .font(.subheadline)
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("Xoá đuôi \(entry.key)")
+            .accessibilityLabel("Xoá \(noun) \(entry.key)")
         }
         .padding(.vertical, 2)
         .accessibilityAction(named: "Sửa") { onEdit() }
