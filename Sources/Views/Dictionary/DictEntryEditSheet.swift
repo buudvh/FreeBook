@@ -232,7 +232,7 @@ struct DictEntryEditSheet: View {
             || wholeKeyMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
                 != originalValue.trimmingCharacters(in: .whitespacesAndNewlines)
             || isSubMeaningEdited
-            || (listMode?.isExtraDirty ?? false)
+            || isListExtraDirty
     }
 
     /// Mọi thay đổi nghĩa do **người dùng** (gõ, chip, dán, xoá, aa…AA) đi qua đây; đổi do vùng chọn thì gán thẳng.

@@ -41,4 +41,10 @@ struct DictEntryEditListMode {
     /// nơi mở đã hiện hộp hỏi và tự lưu + đóng sheet khi người dùng đồng ý; màn Sửa từ không lưu, không đóng. `false` /
     /// `nil` ⇒ lưu như thường.
     var interceptSave: ((_ key: String, _ meaning: String, _ replacing: String?) -> Bool)? = nil
+    /// **Sửa một mục trong cụm nguồn** (2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung M5b — chạm
+    /// chip có sẵn ở màn Quản lý tiền tố, hậu tố / hàng chip ✓): khoá gốc là cụm nguồn (name 古赫密斯语), vùng chọn ban đầu
+    /// là chữ của mục này (语), nới / thu bằng ‹ › như khi thêm. Tiêu đề "Sửa từ", nút "Cập nhật"; lưu luôn thay mục này
+    /// (`replacing` = khoá này): chọn đúng chữ cũ = cập nhật, chọn chữ khác = đổi chữ của mục (dòng "Đổi 语 thành 斯语").
+    /// Đi cùng `suggestedMeaning` (chữ cũ ⇒ nghĩa đang lưu). Mặc định `nil`.
+    var sourceEditingKey: String? = nil
 }

@@ -20,11 +20,22 @@ extension DictEntryEditSheet {
     /// Khoá bị thay khi lưu (xem `DictEntryEditListMode`): cập nhật / đổi chữ gốc ⇒ khoá đang sửa; chọn một phần hoặc
     /// đang thêm mới ⇒ `nil`.
     var listReplacingKey: String? {
+        // Sửa một mục trong cụm nguồn: mọi vùng chọn đều thay mục đó (cập nhật hoặc đổi chữ).
+        if let editing = listMode?.sourceEditingKey { return editing }
         guard !isAddingListEntry else { return nil }
         switch saveAction {
         case .update?, .rename?: return trimmedOriginalKey
         case .addNew?, nil: return nil
         }
+    }
+
+    /// Phần riêng của danh sách đã đổi (`isExtraDirty`), hoặc — sửa mục trong cụm nguồn — đang chọn chữ khác chữ của mục
+    /// (đổi chữ chưa lưu: vuốt đóng phải hỏi).
+    var isListExtraDirty: Bool {
+        guard let listMode else { return false }
+        if listMode.isExtraDirty { return true }
+        guard let editing = listMode.sourceEditingKey else { return false }
+        return !saveTargetKey.isEmpty && saveTargetKey != editing
     }
 
     private var trimmedMeaning: String { meaning.trimmingCharacters(in: .whitespacesAndNewlines) }

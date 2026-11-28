@@ -309,7 +309,12 @@ extension DictEntryEditSheet {
     /// "Lưu thêm X, giữ nguyên Y" khi vùng chọn là một phần; cảnh báo ghi đè khi từ đích đã có trong danh sách.
     @ViewBuilder
     var noticeView: some View {
-        if let newKey = addedKey, !isAddingListEntry {
+        if let editing = listMode?.sourceEditingKey {
+            // Sửa mục trong cụm nguồn: chọn chữ khác chữ của mục = đổi chữ của mục, không phải thêm mục mới.
+            if !saveTargetKey.isEmpty, saveTargetKey != editing {
+                noticeLine("Đổi \(editing) thành \(saveTargetKey)", systemImage: "arrow.left.arrow.right", color: .secondary)
+            }
+        } else if let newKey = addedKey, !isAddingListEntry {
             noticeLine("Lưu thêm \(newKey), giữ nguyên \(trimmedOriginalKey)", systemImage: "plus.circle", color: .secondary)
         }
         // Chế độ Thêm của danh sách: chọn một phần chữ gốc ⇒ chỉ phần đó được thêm — báo rõ, không im lặng.

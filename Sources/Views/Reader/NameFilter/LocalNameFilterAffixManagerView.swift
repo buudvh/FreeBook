@@ -11,7 +11,8 @@ import SwiftUI
 ///
 /// Mỗi thao tác **lưu ngay** rồi báo màn duyệt (`onChanged` ⇒ ghép lại nghĩa các name + toast "Đã … hậu tố X · ghép lại N
 /// name"), không chờ đóng màn như Quản lý nghĩa từ:
-/// - chạm chip ⇒ màn **Sửa từ** của mục đó (`LocalNameFilterSuffixEditorSheet`, R | C đúng phạm vi — M5b);
+/// - chạm chip ⇒ màn **Sửa từ** của mục đó với cả name, chữ của mục chọn sẵn để nới / thu bằng ‹ › (đổi chữ của mục),
+///   R | C đúng phạm vi (`LocalNameFilterSuffixEditorSheet` có `original` + `source` — M5b);
 /// - ⓧ ⇒ hộp hỏi lại (M4: "Xoá hậu tố 语?", dòng phụ nói phạm vi) rồi xoá;
 /// - "+ Thêm" ⇒ màn **Thêm từ** với cả cụm name để thu hẹp bằng ‹ ›, R | C chọn sẵn theo nhóm, loại mặc định = nhóm của name
 ///   (M5).
@@ -211,12 +212,13 @@ struct LocalNameFilterAffixManagerView: View {
     private func editor(for target: EditorTarget) -> some View {
         let flavor = target.flavor
         if let item = target.item {
+            // Cả name, chữ của mục chọn sẵn (M5b): chọn chữ khác = đổi chữ của mục (`original` vẫn là mục này).
             Editor(
                 flavor: flavor,
                 original: item.entry,
                 originalScope: item.scope,
+                source: flavor.selection(of: item.key, in: name).map { Editor.Source(name: name, selection: $0) },
                 bookId: bookId,
-                // Chọn một phần của mục (兰街 ⇒ 街) = thêm mục mới (`original == nil`).
                 onSave: { request in save(request, flavor: flavor, isNew: request.original == nil) },
                 onRestoreBundled: { restoreBundled(item.entry, flavor: flavor) }
             )

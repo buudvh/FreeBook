@@ -25,6 +25,12 @@ import SwiftUI
 ///   giữ); "Thêm" mờ + dòng nhắc khi chọn cả cụm, phần chọn không nằm **cuối** (hậu tố) / **đầu** (tiền tố) name, hoặc dài
 ///   quá 6 chữ. Dòng "Ví dụ" của hậu tố dùng chính name (phần riêng đọc Hán-Việt); của tiền tố dùng mẫu tên Latin (tiền tố
 ///   chỉ ghép trước tên Latin, phần sau của name không tra được nghĩa Latin ở đây).
+/// - **Sửa mục có sẵn trong một name** (`original` + `source`, mockup M5b — chạm chip ở màn Quản lý tiền tố, hậu tố / chip ✓
+///   ở hàng Tiền tố / Hậu tố): mở với **cả name** (古赫密斯语), chữ của mục chọn sẵn (语), nới / thu bằng ‹ › như khi thêm
+///   (`DictEntryEditListMode.sourceEditingKey`). Header "Sửa từ", nút "Cập nhật". Phần chọn là chữ cũ ⇒ cập nhật mục (nghĩa /
+///   loại / vị trí / R | C); chữ khác ⇒ **đổi chữ** của mục (thay khoá cũ, kiểm trùng như đổi chữ gốc), chữ mới phải nằm
+///   cuối / đầu name như khi thêm ("Cập nhật" mờ + dòng nhắc). Ô nghĩa: chữ cũ ⇒ nghĩa đang lưu, chữ khác ⇒ phiên âm (đã gõ
+///   thì giữ). "Về bản gốc" vẫn có với mục gốc đã sửa.
 struct LocalNameFilterSuffixEditorSheet: View {
     typealias Entry = LocalNameFilterSuffixEntry
     typealias Flavor = LocalNameFilterAffixListFlavor
@@ -71,7 +77,8 @@ struct LocalNameFilterSuffixEditorSheet: View {
     let original: Entry?
     /// Phạm vi của `original` (mục Riêng ⇒ `.book`).
     let originalScope: Scope
-    /// Thêm từ một name (xem doc của type); `nil` = màn danh sách như cũ.
+    /// Name chứa mục: thêm từ name (`original == nil`) hoặc sửa mục trong name (M5b) — xem doc của type; `nil` = màn danh
+    /// sách như cũ.
     let source: Source?
     /// Truyện đang mở; `nil` / rỗng ⇒ chỉ danh sách Chung, không có cụm R | C.
     let bookId: String?
@@ -101,7 +108,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
         self.flavor = flavor
         self.original = original
         self.originalScope = original == nil ? .common : originalScope
-        self.source = original == nil ? source : nil
+        self.source = source
         let book = bookId.flatMap { $0.isEmpty ? nil : $0 }
         self.bookId = book
         self.onSave = onSave
@@ -121,7 +128,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
 
     var body: some View {
         DictEntryEditSheet(
-            originalKey: original?.key ?? source?.name ?? "",
+            originalKey: source?.name ?? original?.key ?? "",
             originalValue: original?.meaning ?? "",
             dictType: .vietPhrase, // chỉ nuôi badge mặc định — `badgeText` thay
             scopeBookId: nil,
@@ -151,13 +158,19 @@ struct LocalNameFilterSuffixEditorSheet: View {
         let source = self.source
         let flavor = self.flavor
         let store = flavor.store
+        let original = self.original
+        // Có name nguồn ⇒ nghĩa theo phần đang chọn: chữ của mục đang sửa ⇒ nghĩa đang lưu, chữ khác ⇒ phiên âm viết thường.
         let suggest: ((String) -> String)? = source == nil ? nil : { key in
-            LocalNameFilterAffixListStore.suggestedMeaning(for: key)
+            if let original, key == original.key { return original.meaning }
+            return LocalNameFilterAffixListStore.suggestedMeaning(for: key)
         }
         return DictEntryEditListMode(
             meaningPlaceholder: flavor.meaningPlaceholder,
             keyError: { key, replacing in
-                if let error = source.flatMap({ flavor.sourceKeyError(key, name: $0.name) }) { return error }
+                // Chữ của mục đang sửa được giữ dù nằm giữa name (chip ✓ nhận cả mục ở giữa); chữ khác phải nằm cuối / đầu.
+                if let source, key != original?.key, let error = flavor.sourceKeyError(key, name: source.name) {
+                    return error
+                }
                 guard let bookId else { return store.keyError(key, replacing: replacing) }
                 return store.keyError(key, scope: scope, bookId: bookId, original: scopedOriginal(replacing))
             },
@@ -165,7 +178,7 @@ struct LocalNameFilterSuffixEditorSheet: View {
             save: { key, meaning, replacing in onSave(request(key: key, meaning: meaning, replacing: replacing)) },
             isExtraDirty: original.map { kind != $0.kind || position != $0.position || scope != originalScope } ?? false,
             extraRows: { key, meaning in AnyView(extraRows(key: key, meaning: meaning)) },
-            addsFromSource: source != nil,
+            addsFromSource: source != nil && original == nil,
             suggestedMeaning: suggest,
             caseRowTrailing: bookId == nil ? nil : AnyView(DictEntryEditScopeToggle(isBookScope: Binding(
                 get: { scope == .book },
@@ -176,7 +189,8 @@ struct LocalNameFilterSuffixEditorSheet: View {
                 guard needsOverwriteConfirmation(pending) else { return false }
                 pendingOverwrite = pending
                 return true
-            }
+            },
+            sourceEditingKey: source == nil ? nil : original?.key
         )
     }
 

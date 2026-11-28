@@ -2,6 +2,10 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1088] - 2026-11-27
+
+### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
+
 ## [1.3.NNN] - 2026-11-27
 ### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
 

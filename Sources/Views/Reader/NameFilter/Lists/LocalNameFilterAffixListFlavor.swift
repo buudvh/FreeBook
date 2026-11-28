@@ -110,6 +110,29 @@ enum LocalNameFilterAffixListFlavor: Hashable {
         return nil
     }
 
+    /// Vùng chọn (UTF-16, như màn Sửa từ) của mục `key` trong name khi mở **Sửa từ với cả cụm** (mockup M5b): hậu tố ưu
+    /// tiên lần nằm **cuối**, tiền tố lần nằm **đầu**, không có thì lần nằm trong name đầu tiên (`usablePosition`); `nil` =
+    /// mục không nằm trong name.
+    func selection(of key: String, in rawName: String) -> NSRange? {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let scalars = Array(name.unicodeScalars)
+        let keyScalars = Array(key.unicodeScalars)
+        guard !keyScalars.isEmpty, keyScalars.count < scalars.count else { return nil }
+        let start: Int
+        if self == .suffix, scalars.suffix(keyScalars.count).elementsEqual(keyScalars) {
+            start = scalars.count - keyScalars.count
+        } else if self == .prefix, scalars.prefix(keyScalars.count).elementsEqual(keyScalars) {
+            start = 0
+        } else if let position = usablePosition(of: keyScalars, in: scalars) {
+            start = position
+        } else {
+            return nil
+        }
+        let location = scalars[..<start].reduce(0) { $0 + $1.utf16.count }
+        let length = keyScalars.reduce(0) { $0 + $1.utf16.count }
+        return NSRange(location: location, length: length)
+    }
+
     /// Ghép mục với phần tên riêng theo đúng phía: 江海 + 市 / 老 + 尼尔.
     func word(key: String, proper: String) -> String {
         switch self {

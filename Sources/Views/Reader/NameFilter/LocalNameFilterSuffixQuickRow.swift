@@ -13,7 +13,8 @@ import SwiftUI
 ///   cụm (còn ≥ 1 chữ phía trước), tiền tố ở đầu hoặc giữa cụm (còn ≥ 1 chữ phía sau) — "✓ 长老 · trưởng lão · Nhân danh",
 ///   chạm ⇒ sửa mục đó ở **đúng phạm vi** của nó (cụm R | C chọn sẵn). Mục đang dùng để ghép nghĩa (hậu tố dài nhất ở
 ///   **cuối**, tiền tố dài nhất ở **đầu**, cùng nhóm với name như bộ ghép nghĩa: loại Nhân danh ⇄ tên người, loại khác ⇄
-///   name không phải người — tính trên danh sách hiệu lực) có dấu ●;
+///   name không phải người — tính trên danh sách hiệu lực) có dấu ●. Màn sửa mở với **cả name**, chữ của mục chọn sẵn
+///   (mockup M5b) — nới / thu bằng ‹ › là đổi chữ của mục;
 /// - chip "+ X" cho đoạn cuối (hậu tố) / đầu (tiền tố) 1–3 chữ toàn chữ Hán chưa có trong danh sách hiệu lực, chừa ≥ 1 chữ
 ///   phía bên kia — chạm ⇒ màn thêm với đúng đoạn đó đã chọn (vẫn nới / thu được bằng ‹ ›);
 /// - cuối hàng: "+ Thêm hậu tố / tiền tố" ⇒ màn thêm với **nguyên cụm** name, người dùng thu hẹp bằng ‹ ›.
@@ -247,12 +248,15 @@ struct LocalNameFilterSuffixQuickRow: View {
     @ViewBuilder
     private func editor(for target: EditorTarget) -> some View {
         if let item = target.item {
+            // Cả name, chữ của mục chọn sẵn (M5b): chọn chữ khác = đổi chữ của mục (`original` vẫn là mục này).
             Editor(
                 flavor: flavor,
                 original: item.entry,
                 originalScope: item.scope,
+                source: flavor.selection(of: item.key, in: trimmedName).map {
+                    Editor.Source(name: trimmedName, selection: $0)
+                },
                 bookId: bookId,
-                // Chọn một phần của mục đang có (兰街 ⇒ 街) = thêm mục mới (`original == nil`).
                 onSave: { request in save(request, isNew: request.original == nil) },
                 onRestoreBundled: { restoreBundled(item.entry) }
             )

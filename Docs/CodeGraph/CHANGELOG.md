@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1117] - 2026-11-28
+
+### fix: sửa hậu tố tiền tố có sẵn mở màn Sửa từ với cả name, chữ của mục chọn sẵn, chọn chữ khác là đổi chữ của mục
+
+Khớp mockup bản 3 khung M5b (https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2, anh Bửu duyệt) — trước đó màn Sửa từ chỉ hiện chữ của mục.
+
+- Chạm chip có sẵn ở màn Quản lý tiền tố, hậu tố và chip ✓ ở hàng Tiền tố / Hậu tố của màn duyệt lọc name local ⇒ màn Sửa từ với **cả name** (古赫密斯语), chữ của mục chọn sẵn (语, phần còn lại mờ), nới / thu bằng ‹ › như khi thêm. Hậu tố ưu tiên lần nằm cuối, tiền tố lần nằm đầu (`LocalNameFilterAffixListFlavor.selection(of:in:)`).
+- Lưu: phần chọn là chữ cũ ⇒ cập nhật mục (nghĩa / loại / vị trí / R | C như trước); chữ khác (phải nằm cuối với hậu tố / đầu với tiền tố) ⇒ đổi chữ của mục — thay khoá cũ cùng phạm vi, kiểm trùng như đổi chữ gốc, dòng "Đổi 语 thành 斯语"; "Cập nhật" mờ + dòng nhắc khi không nằm cuối / đầu, chọn cả cụm, quá 6 chữ như M5. Ô nghĩa: chữ cũ ⇒ nghĩa đang lưu, chữ khác ⇒ phiên âm (đã gõ thì giữ). "Về bản gốc" giữ. Đổi chữ chưa lưu ⇒ vuốt đóng hỏi "Bỏ thay đổi?". Lưu xong ghép lại nghĩa cả name mang chữ cũ lẫn chữ mới + toast như trước.
+- Màn Sửa từ chế độ danh sách có thêm chỗ cắm `DictEntryEditListMode.sourceEditingKey` (sửa một mục trong cụm nguồn: tiêu đề "Sửa từ", nút "Cập nhật", `replacing` luôn là khoá đó). Các chế độ khác không đổi.
+- Chọn một phần của chip ✓ không còn là "thêm mục mới" — thêm mới qua chip "+ X" / "+ Thêm …".
+
 ## [1.3.1116] - 2026-11-28
 
 ### feat: màn Sửa từ của màn duyệt lọc name local có hàng Phân loại đổi nhóm name, ghép lại nghĩa theo nhóm mới
@@ -461,7 +472,3 @@ Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, 
 ## [1.3.NNN] - 2026-11-27
 ### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
 - `LocalNameFilterSession.start`: vòng nghe sự kiện thoát ngay sau `.finished` / `.failed`. Trước đó nếu stream của bộ lọc đóng trễ mà người dùng đã bấm "Thử lại", task của lượt cũ tới bước "Bộ lọc dừng mà không báo kết quả" và đẩy lượt mới sang màn lỗi.
-
-## [1.3.1088] - 2026-11-27
-
-### feat: lọc name local chọn loại cần tìm, chip lọc loại và badge NE/VP ở màn duyệt, bước tải model và gói tạm khi đóng chưa lưu
