@@ -14,6 +14,13 @@ import Foundation
 ///    情谷 → 问情谷) hoặc bỏ (`bound_glued`); cụm đã nối xét lại "đã là thực thể khác" (`bound_merged`), từ thường,
 ///    `glued_fragment`. Luật "đầu 2 chữ là từ thường" (K) chỉ tính phần đầu **không** nằm trong thực thể 3 chữ nào mở đầu
 ///    bằng nó (沈清瑶: VP có 沈清 = "trầm thanh" nhưng 沈清 chỉ nằm trong 沈清瑶 / 沈清霜… ⇒ không bỏ).
+/// 3c. Đợt 5 (2026-11-28, "đủ name" — soát mọi thực thể bị bỏ trên 11 truyện): `dict_common_given` không áp cho họ + hậu tố
+///    Nhân danh (陈真传) và chỉ khi LAC tách phần sau họ thành từ thường ≥ 3 × số lần của cụm (江明月 642 lần, 柯大力 631 lần
+///    từng bị bỏ); `dict_common_head` không áp cho cụm có hậu tố dò ≥ 5 lần (大力盟, 如意坊); `function_char` bỏ qua 会 cuối,
+///    哈, 地 không cuối và 9 chữ trong tên "họ + tên" (云梦商会, 哈迪伯爵, 于斯年, 裴问心); `glued_fragment` giữ thực thể + một
+///    chữ đuôi không dính phải / chữ thân tộc và 小 老 阿 + thực thể (史莱克城, 林戎兄, 小炽翎); mảnh: tên mở đầu bằng họ đứng sau
+///    biệt hiệu ≥ 2 chữ không phải mảnh (剑圣|叶瞻); từ thường: nghĩa VP có từ viết hoa ở giữa ⇒ đã có (老尼尔 = "lão Neil"), họ
+///    + hậu tố Nhân danh ≥ 2 chữ không bị bỏ (武师兄).
 /// 4. Loại (`kind(of:…)`, file `+Kind`): L11 / L1–L4 / L16 của plan 2026-11-27-phan-loai-name. Nghĩa dựng sau, theo danh sách
 ///    người dùng (`LocalNameFilterMeaningBuilder`).
 ///
@@ -93,7 +100,9 @@ struct LocalNameFilterLACPipeline {
                 output.reasons[Reason.rankPrefix, default: 0] += 1
                 continue
             }
-            let status = dictionaries.status(word: word)
+            var status = dictionaries.status(word: word)
+            // Đợt 5 (W): nghĩa đầu viết thường nhưng có từ viết hoa (老尼尔 = "lão Neil", 临州城 = "thành Lâm Châu") ⇒ đã có.
+            if status == .common, dictionaries.hasInnerCapital(word: word) { status = .known }
             let suffix = setup.lacSuffix(of: word)
             let row = { (isKnown: Bool) in
                 Row(word: word, kind: kind(of: word, suffix: suffix, tag: tally.dominant, entities: entities),
@@ -104,11 +113,14 @@ struct LocalNameFilterLACPipeline {
                 output.rows.append(row(true))
                 continue
             }
+            // Đợt 5 (W): họ + hậu tố Nhân danh ≥ 2 chữ của danh sách (武师兄) — VP ghi cả cụm viết thường vẫn là name.
+            if status == .common, tally.dominant == .person, isSurnameWithTitle(word) { status = nil }
             if status == .common, !isRescued(word, entities: entities) {
                 output.reasons[Reason.dictCommonWord, default: 0] += 1
                 continue
             }
-            if let reason = check(word, count: count, merged: merged, siblings: siblings) {
+            if let reason = check(word, count: count, tag: tally.dominant, hasSuffix: suffix != nil, merged: merged,
+                                  siblings: siblings) {
                 output.reasons[reason, default: 0] += 1
                 continue
             }
@@ -178,7 +190,11 @@ struct LocalNameFilterLACPipeline {
             for length in 2..<longer.count {
                 for start in 0...(longer.count - length) {
                     let piece = longer.slice(start, start + length)
-                    if merged[piece] != nil { contained.append(piece) }
+                    // Đợt 5 (FR): tên mở đầu bằng họ đứng ở cuối cụm sau một biệt hiệu ≥ 2 chữ (剑圣|叶瞻) không phải mảnh.
+                    if merged[piece] != nil,
+                       !(start + length == longer.count && isNameAfterTitle(piece, in: longer)) {
+                        contained.append(piece)
+                    }
                 }
             }
             guard !contained.isEmpty else { continue }
@@ -207,24 +223,81 @@ struct LocalNameFilterLACPipeline {
     }
 
     /// Các luật sau "từ thường", đúng thứ tự `lacpipe.py`. `nil` = qua.
-    private func check(_ word: Word, count: Int, merged: [Word: Tally], siblings: [Word: [Word]]) -> String? {
-        if word.scalars.contains(where: { Rules.has(scalar: $0, .lacFunction) }) { return Reason.functionChar }
+    private func check(
+        _ word: Word,
+        count: Int,
+        tag: LocalNameFilter.Category,
+        hasSuffix: Bool,
+        merged: [Word: Tally],
+        siblings: [Word: [Word]]
+    ) -> String? {
+        if hasFunctionChar(word, tag: tag) { return Reason.functionChar }
         if word.count == 3 {
             // Đầu 2 chữ là từ thường đứng riêng nhiều hơn hẳn (许久|之, 周身|魂); họ kép (上官|博) không tính. Đợt 4 (K): "đứng
             // riêng" = không nằm trong thực thể 3 chữ nào mở đầu bằng nó (沈清瑶 / 沈清霜 / 沈清璇 dùng chung đầu 沈清).
             let head = word.slice(0, 2)
-            if !isSurname(head), dictionaries.status(word: head) == .common,
+            // Đợt 5 (H): cụm có hậu tố dò và ≥ 5 lần (大力盟, 如意坊, 神龙城) là từ thường + hậu tố = name, không xét.
+            if !hasSuffix || count < Rules.commonHeadSuffixMinCount, !isSurname(head),
+               dictionaries.status(word: head) == .common,
                Double(standaloneCount(head, siblings: siblings)) >= Rules.commonHeadStandaloneRatio * Double(textCount(word)) {
                 return Reason.dictCommonHead
             }
             // Họ đơn + từ thường 2 chữ (王|余孽).
             let given = word.slice(1, 3)
+            // Đợt 5 (G): phần sau họ không phải hậu tố Nhân danh (陈真传), và LAC tách nó thành từ thường đứng riêng ≥ 3 × số
+            // lần của cụm (王|余孽 bỏ; 江明月, 柯大力 giữ).
             if isSurname(word.slice(0, 1)), dictionaries.status(word: given) == .common,
-               Double(textCount(given)) >= Rules.commonPartRatio * Double(textCount(word)) {
+               Double(textCount(given)) >= Rules.commonPartRatio * Double(textCount(word)),
+               !setup.isPersonSuffix(given),
+               Int(counts.others[given] ?? 0) >= Rules.commonGivenStandaloneFactor * count {
                 return Reason.dictCommonGiven
             }
         }
         return isGlued(word, count: count, merged: merged) ? Reason.gluedFragment : nil
+    }
+
+    /// (F) `has_function_char(w, lac_tag)`: có hư từ phía LAC, trừ 会 ở cuối cụm ≥ 3 chữ (商会, 教会, 协会), 哈 khi không có 哈哈
+    /// (phiên âm: 哈迪, 哈布拉), 地 không ở cuối (遁地术, 大地母神), và các chữ `functionNameOKScalars` trong tên người 2–3 chữ mở
+    /// đầu bằng họ đơn (于斯年, 裴问心, 石良才).
+    private func hasFunctionChar(_ word: Word, tag: LocalNameFilter.Category) -> Bool {
+        let scalars = word.scalars
+        let last = scalars.count - 1
+        let personShape = tag == .person && (2...3).contains(scalars.count) && isSingleSurname(scalars[0])
+        var hasDoubleHa = false
+        if last >= 1 {
+            for index in 0..<last where scalars[index] == Rules.haScalar && scalars[index + 1] == Rules.haScalar {
+                hasDoubleHa = true
+            }
+        }
+        for (index, scalar) in scalars.enumerated() where Rules.has(scalar: scalar, .lacFunction) {
+            if scalar == Rules.huiScalar, index == last, scalars.count >= 3 { continue }
+            if scalar == Rules.haScalar, !hasDoubleHa { continue }
+            if scalar == Rules.diScalar, index < last { continue }
+            if personShape, Rules.functionNameOKScalars.contains(scalar) { continue }
+            return true
+        }
+        return false
+    }
+
+    /// (W) Họ + hậu tố Nhân danh ≥ 2 chữ của danh sách người dùng (武师兄).
+    private func isSurnameWithTitle(_ word: Word) -> Bool {
+        let surnameLength = dictionaries.surnameLength(of: word)
+        guard surnameLength > 0, word.count - surnameLength >= 2 else { return false }
+        return setup.isPersonSuffix(word.slice(surnameLength, word.count))
+    }
+
+    /// (FR) `name_after_title(w, longer)`: `piece` mở đầu bằng họ đơn, đứng ở cuối `longer` sau một phần ≥ 2 chữ không phải
+    /// họ; LAC gắn `piece` là thực thể nhiều hơn nhãn thường và nó không kết thúc bằng 儿 / 子 (成神, 孙儿 không tính).
+    private func isNameAfterTitle(_ piece: Word, in longer: Word) -> Bool {
+        guard piece.count >= 2, isSingleSurname(piece[0]) else { return false }
+        let entity = counts.entities[piece]?.tally.total ?? 0
+        if (counts.others[piece] ?? 0) >= entity || Rules.commonKeepEndScalars.contains(piece.last) { return false }
+        let head = longer.dropLast(piece.count)
+        return head.count >= 2 && !isSurname(head)
+    }
+
+    private func isSingleSurname(_ scalar: UInt32) -> Bool {
+        scalar <= 0xFFFF && setup.has(UInt16(scalar), .surnameSingle)
     }
 
     /// (K) `standalone_head(w)`: số lần `head` xuất hiện trừ số lần của mọi thực thể 3 chữ mở đầu bằng nó.
@@ -247,6 +320,14 @@ struct LocalNameFilterLACPipeline {
                       Int(tally.total) >= Rules.lacGlueStrength * count else { continue }
                 let rest = word.removing(from: start, length: innerLength)
                 if setup.isGlueKeep(rest) { continue }
+                // Đợt 5 (GL): thực thể + đúng một chữ thân tộc / chữ đuôi dò ở cuối (林戎|兄, 史莱克|城 — đuôi thì cụm không được
+                // dính chữ ngay sau: 临济城镇|魔司), hoặc 小 / 老 / 阿 + thực thể (小|炽翎).
+                if rest.count == 1 {
+                    let only = rest[0]
+                    if start == 0, Rules.has(scalar: only, .kinship) { continue }
+                    if start == 1, Rules.gluePrefixScalars.contains(only) { continue }
+                    if start == 0, setup.lacSuffixChars.contains(only), !isBoundRight(word) { continue }
+                }
                 let parts = [word.slice(0, start), word.slice(start + innerLength, length)].filter { !$0.isEmpty }
                 let commonInside = parts.contains { part in
                     (0..<max(0, part.count - 1)).contains { dictionaries.status(word: part.slice($0, $0 + 2)) == .common }

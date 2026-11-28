@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1139] - 2026-11-28
+
+### feat: lọc name local trả lại tên thật bị các luật lọc cũ bỏ nhầm như 江明月, 柯大力, 云梦商会, 史莱克城
+
+- Soát "đủ name" trên bản Python tham chiếu: ghi lý do bỏ của mọi thực thể LAC ở bước lọc rồi xem các thực thể có số lần cao trên 11 truyện. Các luật lọc cũ đang bỏ nhầm nhiều tên thật: 江明月 (642 lần), 柯大力 (631 lần), 于斯年 (124), 云梦商会 (124), 大力盟 (87), 史莱克城 (83), 裴问心 (66), 叶瞻 (109), 老尼尔 (182). Hai tên đầu cũng vắng trong file anh Bửu xuất từ màn duyệt. Sửa ở `LocalNameFilterLACPipeline` (chỉ đường có model LAC), chép đúng khối "Đợt 5" của `lacpipe.py`.
+- `dict_common_given` (họ + từ thường 2 chữ): không áp khi phần sau họ là hậu tố Nhân danh của danh sách (陈真传, 徐学长, 袁峰主 là họ + danh xưng), và chỉ bỏ khi LAC tách phần sau họ thành từ thường đứng riêng ≥ 3 × số lần của cụm. 江明月, 柯大力, 田悠悠, 钟万里, 蔺如风 giữ; 王余孽, 何强横, 王三家 vẫn bỏ.
+- `dict_common_head` (đầu 2 chữ là từ thường): không áp cho cụm có hậu tố dò xuất hiện ≥ 5 lần — từ thường + hậu tố là name (大力盟, 如意坊, 九宝阁, 神龙城, 浩然峰, 铁衣镇, 易筋丹). 倘若镇, 温柔乡 (3 lần) vẫn bỏ.
+- `function_char`: không tính 会 ở cuối cụm ≥ 3 chữ (云梦商会, 黑夜女神教会, 冒险家协会), 哈 khi không có 哈哈 (哈迪伯爵, 哈布拉), 地 không ở cuối (遁地兽, 大地母神教会); Nhân danh 2–3 chữ mở đầu bằng họ đơn được chứa 和 连 才 问 有 于 向 能 自 (于斯年, 裴问心, 石良才, 徐天和, 林有余).
+- `glued_fragment`: giữ thực thể + đúng một chữ thân tộc ở cuối (林戎兄); thực thể + đúng một chữ đuôi dò ở cuối khi cụm không dính chữ ngay sau ≥ 90 % số lần (史莱克城, 雁平县, 广平县 giữ; 临济城镇 = 临济城 + 镇魔司 vẫn bỏ); 小 / 老 / 阿 + thực thể (小炽翎).
+- Mảnh (`fragment`): tên mở đầu bằng họ đơn đứng ở cuối một cụm dài hơn, sau một phần ≥ 2 chữ không phải họ (剑圣|叶瞻, 七爷|范无救) không còn bị coi là mảnh của cụm đó — khi LAC gắn nó là thực thể nhiều hơn nhãn thường và nó không kết thúc bằng 儿 / 子 (成神, 孙儿 không được miễn).
+- Từ thường (`dict_common_word`): nghĩa VP đầu viết thường nhưng có từ viết hoa ở giữa ⇒ coi là đã có (老尼尔 = "lão Neil", 临州城 = "thành Lâm Châu", 东城区 — `LocalNameFilterDictionaries.hasInnerCapital`); Nhân danh = họ + hậu tố Nhân danh ≥ 2 chữ của danh sách không bị bỏ vì VP ghi cả cụm viết thường (武师兄).
+- Luật rác thêm `count_great`: tổ chức mở đầu bằng chữ số + 大 (七大教会, 八大宗门); tên nhóm người / địa danh (八大天君, 四大圣岛) không tính.
+- Số đo trên bản Python (11 truyện, so với 1.3.1137): mất 2 hàng (七大教会, 八大宗门 — rác), thêm 107 hàng; đọc từng hàng thêm: phần lớn là tên thật, còn vài cụm chưa rõ (金魔鸟, 祖地俊彦榜, 黄泉地火). Mô phỏng máy anh (coi 815 name anh đã lưu là đã có): thêm 50 name, trong đó 江明月, 柯大力, 田悠悠, 叶瞻, 大力盟, 裴问心.
+- Còn bỏ nhầm, chưa có cách: VP ghi hẳn nghĩa thường cho tên (林三, 苏勒), đuôi không có trong bộ dò (寒冰堡), "họ + 上人" ít lần.
+- `.claude/rules/translation.md`: ghi đợt 5 và cách soát.
+- Chưa build (máy Windows); chưa thử trên máy. Số đo là của bản Python tham chiếu, không phải của app.
+
 ## [1.3.1138] - 2026-11-28
 
 ### feat: màn Hậu tố, Tiền tố và Không phải name của lọc name local nhập được danh sách từ file
@@ -412,21 +429,3 @@ Cập nhật `.claude/rules/` cho đợt 1.3.1103–1109 (plan `Docs/Plans/2026-
   đầu thẻ dính; dấu gói tạm tính cả tiền tố.
 - `ui-conventions.md`: danh sách áp màn Sửa từ; popup ba cách lưu ở chỗ không phải nhập file.
 - `storage.md`: các khoá `UserDefaults` / `@AppStorage` của danh sách lọc name.
-
-## [1.3.1109] - 2026-11-28
-
-### feat: sheet lọc name local có danh sách Tiền tố và Họ, thanh kéo hai đầu chọn độ dài name
-
-Plan 2026-11-27-phan-loai-name L10, L13, L15 (anh Bửu: "Thêm chọn min max số từ ở màn lọc name, dạng kéo", "step min max
-1 thôi"), mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung 5.
-
-- Mục "Danh sách": Hậu tố · Tiền tố · Họ (`LocalNameFilterSurnameListView`, số = `QuickTranslationSurnameStore.nameFilter`)
-  · Không phải name, số mục kiểu Việt (1.299), đọc lại mỗi lần quay về; giải thích "?" viết lại cho bốn danh sách.
-- Mục "Tuỳ chọn": hàng "Độ dài name" dưới "Ít nhất N lần" — thanh kéo hai đầu tự dựng `LocalNameFilterLengthRangeSlider`
-  (một `DragGesture`, nấc 1 chữ 2…10, đầu phải 10 = "10+" không giới hạn, hai núm trùng nhau được, chọn núm theo hướng
-  kéo khi trùng; mỗi núm là phần tử trợ năng riêng có `accessibilityAdjustableAction`; rung nhẹ mỗi nấc), số bên phải
-  "2 – 10+ chữ" / "3 – 6 chữ"; nhớ bằng `@AppStorage` `localNameFilterMinLength` / `localNameFilterMaxLength`.
-- "Bắt đầu lọc" truyền `prefixes` (danh sách Tiền tố), `minLength`, `maxLength` (10+ ⇒ `nil`) vào
-  `LocalNameFilter.Configuration`; dấu nghĩa của gói tạm tính theo đúng danh sách tiền tố của lượt lọc.
-
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.

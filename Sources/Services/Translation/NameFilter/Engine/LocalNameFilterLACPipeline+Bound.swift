@@ -53,6 +53,13 @@ extension LocalNameFilterLACPipeline {
         return extended.count == word.count ? word : Self.word(extended)
     }
 
+    /// `is_rule_han(w) and bound_char(w, "right")` — cụm (toàn chữ Hán dải bộ luật) dính một chữ ngay sau ≥ 90 % số lần. Đợt 5
+    /// (GL): "thực thể + một chữ đuôi" chỉ được giữ khi cụm không dính như vậy (临济城镇|魔司).
+    func isBoundRight(_ word: Word) -> Bool {
+        guard let units = word.ruleHanUnits else { return false }
+        return boundUnit(units, right: true) != nil
+    }
+
     // MARK: - Nối
 
     /// `extend_right(w)`.

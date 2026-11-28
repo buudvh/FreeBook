@@ -116,6 +116,14 @@ final class LocalNameFilterDictionaries {
         return result
     }
 
+    /// Đợt 5 (W, `inner_capital` của `lacpipe.py`): nghĩa VP đầu của `word` viết thường ở chữ đầu nhưng có một từ viết hoa
+    /// ("lão Neil", "thành Lâm Châu") — mục từ điển của một tên riêng kèm danh từ chung. Phía LAC coi là đã có.
+    func hasInnerCapital(word: LocalNameFilterWord) -> Bool {
+        guard let raw = vietPhraseMeaning(word.string) else { return false }
+        let first = TranslateUtils.getFirstMeaning(of: raw)
+        return first.split(separator: " ").dropFirst().contains { $0.first?.isUppercase == true }
+    }
+
     private func lookupStatus(_ word: String) -> Status? {
         if containsName(word) { return .known }
         guard let raw = vietPhraseMeaning(word) else { return nil }

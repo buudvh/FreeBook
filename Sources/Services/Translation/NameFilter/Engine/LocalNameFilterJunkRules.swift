@@ -125,6 +125,12 @@ struct LocalNameFilterJunkRules {
         if length >= 3, Rules.countNumeralScalars.contains(word[0]), Rules.countClassifierScalars.contains(word[1]) {
             return Reason.countClassifier
         }
+        // Đợt 5 `count_great`: tổ chức mở đầu bằng chữ số + 大 (七大教会, 八大宗门) — tên nhóm người / địa danh (八大天君,
+        // 四大圣岛) không tính.
+        if row.category == .organization, length >= 4, Rules.countNumeralScalars.contains(word[0]),
+           word[1] == Rules.greatScalar {
+            return Reason.countGreat
+        }
         if length >= 3, word.suffix(2) == Rules.jianghuWord { return Reason.jianghuTail }
         if length >= 3, word[length - 1] == word[length - 2], setup.lacSuffixChars.contains(word.last) {
             return Reason.doubleSuffix

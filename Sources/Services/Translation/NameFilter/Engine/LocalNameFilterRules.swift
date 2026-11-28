@@ -128,6 +128,23 @@ enum LocalNameFilterRules {
     /// 小 của `small_generic` (từ thường + 小 + đuôi 1 chữ: 黑色小湖).
     static let smallScalar: UInt32 = 0x5C0F
 
+    // MARK: - Đợt 5 (2026-11-28, `lacpipe.py` › "Đợt 5"): nới các luật lọc phía LAC đang bỏ nhầm tên thật
+
+    /// (H) `COMMON_HEAD_SUFFIX_MIN`: "đầu 2 chữ là từ thường" không áp cho cụm có hậu tố dò xuất hiện ≥ 5 lần (大力盟, 如意坊).
+    static let commonHeadSuffixMinCount = 5
+    /// (G) "họ + từ thường": LAC phải tách phần sau họ thành từ thường đứng riêng ≥ 3 × số lần của cụm (江明月, 柯大力 giữ).
+    static let commonGivenStandaloneFactor = 3
+    /// (F) `FUNCTION_NAME_OK` (9 chữ): hư từ được nằm trong tên người kiểu "họ + tên" 2–3 chữ (于斯年, 裴问心, 石良才).
+    static let functionNameOKScalars: Set<UInt32> = scalarSet("和连才问有于向能自")
+    /// (F) 会 ở cuối cụm ≥ 3 chữ (商会, 教会), 哈 khi không có 哈哈 (哈迪), 地 không ở cuối (遁地术) không tính là hư từ.
+    static let huiScalar: UInt32 = 0x4F1A
+    static let haScalar: UInt32 = 0x54C8
+    static let diScalar: UInt32 = 0x5730
+    /// (GL) `GLUE_PREFIX`: 小 / 老 / 阿 + thực thể (小炽翎) không phải dính.
+    static let gluePrefixScalars: Set<UInt32> = scalarSet("小老阿")
+    /// 大 của `count_great` (tổ chức mở đầu bằng chữ số + 大: 七大教会).
+    static let greatScalar: UInt32 = 0x5927
+
     // MARK: - Ngưỡng (Python)
 
     static let dominance = 0.6
@@ -210,6 +227,8 @@ enum LocalNameFilterRules {
         static let boundMerged = "bound_merged"
         /// Luật rác đợt 4 (`context_junk`, sau L17–L25): chữ số + lượng từ ở đầu (三尊诡物天尊).
         static let countClassifier = "count_classifier"
+        /// Đợt 5: tổ chức mở đầu bằng chữ số + 大 (七大教会, 八大宗门).
+        static let countGreat = "count_great"
         /// Kết thúc bằng 江湖 (武者江湖).
         static let jianghuTail = "jianghu_tail"
         /// Hai chữ cuối là cùng một chữ đuôi (紫府府).
