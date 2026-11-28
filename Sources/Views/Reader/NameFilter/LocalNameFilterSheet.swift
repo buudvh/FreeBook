@@ -6,7 +6,8 @@ import SwiftUI
 ///
 /// Ba bước trong **một** sheet, theo `LocalNameFilterSession.phase`:
 /// 1. Chọn phạm vi (`+Setup`): như "Lọc name nhiều chương" của AI (`ReaderAIBatchPromptSheet`) bỏ "Tiếp nối"; không đọc /
-///    ghi mặc định của sheet AI. "Gói tạm chưa lưu" ở đầu (`+Drafts`, chỉ khi có gói), "Loại cần tìm" (`+Categories`,
+///    ghi mặc định của sheet AI. Hàng "Lịch sử lọc ›" ở đầu (`+History`, trang `LocalNameFilterHistoryView` — mỗi lần lọc,
+///    đã lưu / chưa lưu, mở lại gói tạm), "Loại cần tìm" (`+Categories`,
 ///    nhớ bằng `@AppStorage`), "Ít nhất N lần" (mặc định 3), "Độ dài name" (thanh kéo hai đầu, nhớ bằng `@AppStorage`) +
 ///    "Ưu tiên tên Latin" + "Nới đoán tên Latin" (theo truyện, `LocalNameFilterLatinPreferenceStore`), mục "Danh sách" mở
 ///    bốn màn quản lý (Hậu tố, Tiền tố, Họ, Không phải name) — chung mọi truyện, Hậu tố / Tiền tố / Không phải name có thêm
@@ -73,8 +74,14 @@ struct LocalNameFilterSheet: View {
     @AppStorage("localNameFilterMaxLength") var maxLengthSetting: Int = LocalNameFilterLengthRangeSlider.bounds.upperBound
     /// "Loại cần tìm" (`+Categories`): `rawValue` các nhóm nối bằng dấu phẩy; rỗng / hỏng = cả bốn nhóm.
     @AppStorage("localNameFilterCategories") var categoriesRaw: String = ""
-    /// Gói tạm chưa lưu của truyện (`+Drafts`), ghi gần nhất trước; nạp ngoài main khi mở sheet.
-    @State var drafts: [LocalNameFilterDraft] = []
+    /// Lịch sử lọc + gói tạm của truyện cho hàng "Lịch sử lọc" (`+History`); nạp ngoài main mỗi lần trang đầu hiện ra.
+    @State var history = LocalNameFilterHistorySnapshot.empty
+    /// Đã nạp lịch sử lần đầu (trước đó không ghi "Chưa có").
+    @State var historyLoaded = false
+    /// Trang Lịch sử lọc đang được đẩy vào stack của sheet.
+    @State var showsHistory = false
+    /// Màn duyệt đang mở là gói mở từ trang Lịch sử lọc ⇒ bấm ‹ thì về lại trang đó (`+History.reopenHistoryIfNeeded`).
+    @State var reopensHistoryAfterReview = false
 
     var body: some View {
         ZStack {
@@ -93,6 +100,11 @@ struct LocalNameFilterSheet: View {
                     phaseContent
                         .pageTitle("Lọc name local")
                         .safeAreaInset(edge: .bottom) { bottomBar }
+                        .navigationDestination(isPresented: $showsHistory) {
+                            LocalNameFilterHistoryView(bookId: bookId) { draft in
+                                openDraftFromHistory(draft)
+                            }
+                        }
                 }
             }
         }
@@ -101,6 +113,12 @@ struct LocalNameFilterSheet: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 session.persistDraftForBackground()
+            }
+        }
+        // Màn duyệt mở từ trang Lịch sử lọc đóng bằng ‹ ⇒ stack dựng lại từ gốc, đẩy lại trang lịch sử.
+        .onChange(of: session.phase) { _, newPhase in
+            if newPhase == .setup {
+                reopenHistoryIfNeeded()
             }
         }
     }

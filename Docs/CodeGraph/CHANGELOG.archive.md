@@ -2,6 +2,18 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1097] - 2026-11-27
+
+### feat: lọc name local lấy nghĩa theo từ điển, danh sách đuôi chỉ để dịch nghĩa, công tắc ưu tiên tên Latin theo truyện có mô hình đoán tên
+
+- Nghĩa đề xuất theo từ điển (plan 2026-11-27-nghia-ten-tay-huyen mục 2, mọi truyện): cả từ có trong Name 3 lớp rồi VP 3 lớp với nghĩa viết hoa ⇒ lấy nghĩa đó (克莱恩 ⇒ Klein); không có ⇒ bóc danh xưng / đuôi như cũ, phần tên riêng tách theo `·` `.` `•`, mỗi mảnh: cả mảnh trong từ điển ⇒ nghĩa đó, phủ trọn bằng mục ≥ 2 chữ ⇒ ghép (罗塞尔大帝 ⇒ Russel đại đế, 戴里克.伯格 ⇒ Derrick Berg), còn lại ⇒ Hán-Việt như cũ (họ theo Danh sách họ). Name không phải người có đuôi: thử phủ trọn cả từ khi mục cuối dài hơn đuôi (贝克兰德东区 ⇒ Backlund Đông Khu), không được mới bóc đuôi. Nghĩa đầu viết thường (hàng luật (e)) không lấy. Mới: `LocalNameFilterProperNames` (nhớ kết quả cả lượt), `LocalNameFilterDictionaries.dictionaryValue`.
+- Danh sách "Đuôi địa danh, tổ chức, thuật ngữ" chỉ để dịch nghĩa (cách A, anh Bửu): mọi đuôi trong danh sách ghép nghĩa name không phải tên người, kể cả 观 花 区 (玄真观 ⇒ Huyền Chân quán); dò ứng viên / luật / phân loại / chữ cuối của bộ gắn nhãn dùng bộ cố định `LocalNameFilterSuffixStore.detectionSuffixes` = file gốc trừ dòng `|off`, không theo danh sách người dùng ⇒ cấu hình mặc định ra đúng số name như trước (10 truyện, so từng hàng). Bỏ bật / tắt: nút ⏸ và chữ "đang tắt" ở màn danh sách, `setEnabled`, trường `enabled` của lớp ghi đè (đọc vào thì bỏ qua, `format` 3), `bundledOffLater`. `|off` trong file gốc nay nghĩa là "không dùng để dò".
+- Công tắc "Ưu tiên tên Latin" ở mục Tuỳ chọn của sheet Lọc name local (nút "?", mặc định tắt), nhớ theo truyện ở `UserDefaults` `localNameFilterLatinByBook` (`LocalNameFilterLatinPreferenceStore`); đổi nguồn chép (đích có giá trị riêng thì giữ), xoá truyện thì xoá. Bật ⇒ mảnh trông như phiên âm (≥ nửa số chữ thuộc tập chữ phiên âm) lấy nghĩa chữ Latin đầu tiên trong từ điển (班森 ⇒ Benson); mảnh phiên âm không có trong từ điển ⇒ mô hình đoán (伽罗斯 ⇒ Garos, 霍尔登帝国 ⇒ Holden đế quốc), ít nguyên âm quá thì bỏ; tên đoán gắn `Name.isGuessedMeaning`, chép sang `AIExtractedName.isGuessedMeaning`.
+- Mô hình đoán tên `translit_latin.json` (~155 KB) ghim commit + sha256 + kích thước trên kho HF `raikiri1498/vietpharse` (`LocalNameFilterLatinModelStore`), chỉ tải khi một lượt bật công tắc mà máy chưa có, vào `translate/LAC/`; `LocalNameFilterLatinModelGate` gộp lượt nạp trùng, giữ mô hình yếu; bộ giải mã `LocalNameFilterLatinModel` đúng SPEC của `Tools/lac-export/export_translit.py` (chùm 16, LM chữ cái bậc 3, hoà điểm giữ thứ tự sinh). Tải / đọc lỗi ⇒ log ❌, vẫn lọc như tắt công tắc.
+- Log `🔎 [LọcName] Xong…` thêm "Latin bật · đoán N" / "Latin bật nhưng thiếu mô hình".
+- Bản tham chiếu Python (`name_meaning.py`, `lacpipe.py` cách A, `compare_meaning.py`): 10 truyện giữ y hàng (chữ Hán, loại, số lần, đã có); với VP của anh đổi nghĩa 诡秘之主 239 / 374 (+45 khi bật Latin, 16 đoán), 巫师 24 / 50 (+10), 以一龙之力 15 / 40 (+11), Naruto 50 / 74 (+3), Sư muội 40 / 268, Đấu La 124 / 655. Bộ giải mã Python khớp `Model.predict` của công cụ học 6000 / 6000 mục VP.
+- Chưa biên dịch (máy Windows), chưa thử trên máy.
+
 ## [1.3.1096] - 2026-11-27
 
 ### feat: màn duyệt name có ô tìm chữ Hán hoặc nghĩa, kiểu sắp chưa có trước và nhãn đoán

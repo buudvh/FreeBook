@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Bước chọn của sheet "Lọc name local" (mockup khung 2; bản LAC khung 1 / 5; nghĩa tên tây huyễn khung 1; phân loại name
-/// khung 5): Gói tạm chưa lưu (`+Drafts`, chỉ khi có), Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N
+/// khung 5): hàng Lịch sử lọc (`+History`), Phạm vi lọc, Loại cần tìm (`+Categories`), Tuỳ chọn ("Ít nhất N
 /// lần", "Độ dài name", "Ưu tiên tên Latin" theo truyện), Danh sách (Hậu tố, Tiền tố, Họ, Không phải name).
 ///
 /// Phạm vi chép cách của `ReaderAIBatchPromptSheet` (chương đang đọc / chương đầu tiên / "Chọn chương…" qua
@@ -85,7 +85,7 @@ extension LocalNameFilterSheet {
                 }
             }
 
-            draftsSection
+            historySection
 
             Section {
                 if let chapters {
@@ -179,7 +179,7 @@ extension LocalNameFilterSheet {
         // `onAppear` của gốc chạy lại mỗi lần quay về từ màn quản lý ⇒ số + công tắc Latin luôn mới.
         .onAppear { refreshListCounts() }
         .task { await loadChapters() }
-        .task { await loadDrafts() }
+        .task { await loadHistory() }
     }
 
     /// Hàng **"Nới đoán tên Latin"** (2026-11-28, mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2 khung N5) ngay dưới

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1127] - 2026-11-28
+
+### feat: sheet lọc name local thay gói tạm chưa lưu bằng hàng Lịch sử lọc và trang lịch sử riêng có xoá, dọn dẹp, chọn nhiều
+
+Giao diện Lịch sử lọc theo mockup H1–H5 anh Bửu đã duyệt (https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2):
+
+- H1 (`LocalNameFilterSheet+History`, thay `+Drafts`): bỏ section "Gói tạm chưa lưu (N)"; đầu sheet là hàng "Lịch sử lọc ›" — dòng phụ "Lần gần nhất dd/MM HH:mm", bên phải "N lần · M chưa lưu" (M = lần chưa lưu còn gói tạm, màu cam), chưa có ⇒ "Chưa có". Chạm ⇒ đẩy trang lịch sử vào `NavigationStack` của sheet (`navigationDestination(isPresented:)`). Mở lại gói từ trang lịch sử rồi bấm ‹ ở màn duyệt ⇒ về lại trang lịch sử.
+- H2 (`History/LocalNameFilterHistoryView`, `LocalNameFilterHistoryRow`): trang `.backPageTitle("Lịch sử lọc")`, nhóm theo ngày ("Hôm nay · 28/11", "27/11"…, giờ 24 giờ cố định), mới nhất trên cùng. Hàng "HH:mm · phạm vi" (lần Dừng có "(dừng)"); dòng 2 "✓ Đã lưu X / Y" (✓ xanh, chỉ xem) / "● Chưa lưu · lọc được Y" (● cam + chevron, chạm ⇒ mở lại màn duyệt như chạm gói tạm trước đây) / "Chưa lưu · lọc được Y · Gói tạm đã bị xoá" (mờ, không mở được). Mỗi lần trang hiện ra gói tạm vẫn tự cập nhật như cũ (`LocalNameFilterDraftRefresher.currentInputs` dùng chung với sheet). Đoạn giải thích cũ của section gói tạm dời vào nút "?" ở nhóm ngày đầu.
+- H3: vuốt trái ⇒ Xoá ⇒ hỏi "Xoá lần lọc 10:20?" (ngày khác: "27/11 22:14"); còn gói tạm ⇒ "Gói tạm N name chưa lưu của lần này cũng bị xoá."; đã lưu ⇒ chỉ xoá dòng, name đã lưu giữ nguyên.
+- H4 (`+Delete`): ⋯ ⇒ ngăn kéo "Lịch sử lọc · N lần": "Chọn nhiều để xoá", "Dọn dẹp tất cả" (đỏ, dòng phụ "N lần · M gói tạm chưa lưu" — hàng `LocalNameFilterHistoryDrawerRow` vì `SideDrawerActionRow` chỉ có chữ phụ bên phải), hỏi "Xoá N lần lọc?" + số gói tạm bị xoá theo.
+- H5: chế độ chọn nhiều kiểu Kệ — header ✕ + "Đã chọn N" + "Chọn tất cả" / "Bỏ chọn tất cả" (một `.pageTitle` đổi tham số, ẩn nút back), chạm hàng để tích (không mở gói, không vuốt), thanh đáy "N lần · M gói tạm chưa lưu" + nút đỏ "Xoá (N)" ⇒ hỏi lại; ✕ hoặc xoá xong ⇒ về như thường. Xoá xong toast "Đã xoá N lần lọc · M gói tạm".
+
 ## [1.3.1126] - 2026-11-28
 
 ### feat: lọc name local ghi lịch sử lọc theo truyện, mỗi lượt ra màn duyệt một mục, lưu xong đánh dấu đã lưu
@@ -471,16 +483,4 @@ Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo 
 
 - Màn "Duyệt tên riêng & VP" của luồng Lọc name local có nút ‹ ở header (plan 2026-11-27-nghia-ten-tay-huyen mục 5): `ReaderAINameReviewSheet` nhận `onBack` tuỳ chọn ⇒ `HeaderBackButton` + tiêu đề ngay cạnh (`PageTitleModifier` kiểu `.centered` đọc `\.sheetPageBack`, đặt ngoài `NavigationStack`). Luồng AI không truyền ⇒ header như cũ; sheet Sửa từ mở từ màn duyệt nhận lại giá trị `\.sheetPageBack` kế thừa nên không có nút ‹ lạ.
 - Bấm ‹ ⇒ `LocalNameFilterSession.leaveReview`: giữ danh sách đang duyệt thành gói tạm bằng đúng hàm lúc đóng sheet (`keepDraftOnClose`), không toast, rồi về trang đầu "Lọc name local" — sheet không đóng, mục "Gói tạm chưa lưu" hiện ngay (trang đầu nạp lại gói khi hiện ra). Đóng sheet sau đó không ghi gói lần nữa.
-- Chưa biên dịch (máy Windows), chưa thử trên máy.
-
-## [1.3.1097] - 2026-11-27
-
-### feat: lọc name local lấy nghĩa theo từ điển, danh sách đuôi chỉ để dịch nghĩa, công tắc ưu tiên tên Latin theo truyện có mô hình đoán tên
-
-- Nghĩa đề xuất theo từ điển (plan 2026-11-27-nghia-ten-tay-huyen mục 2, mọi truyện): cả từ có trong Name 3 lớp rồi VP 3 lớp với nghĩa viết hoa ⇒ lấy nghĩa đó (克莱恩 ⇒ Klein); không có ⇒ bóc danh xưng / đuôi như cũ, phần tên riêng tách theo `·` `.` `•`, mỗi mảnh: cả mảnh trong từ điển ⇒ nghĩa đó, phủ trọn bằng mục ≥ 2 chữ ⇒ ghép (罗塞尔大帝 ⇒ Russel đại đế, 戴里克.伯格 ⇒ Derrick Berg), còn lại ⇒ Hán-Việt như cũ (họ theo Danh sách họ). Name không phải người có đuôi: thử phủ trọn cả từ khi mục cuối dài hơn đuôi (贝克兰德东区 ⇒ Backlund Đông Khu), không được mới bóc đuôi. Nghĩa đầu viết thường (hàng luật (e)) không lấy. Mới: `LocalNameFilterProperNames` (nhớ kết quả cả lượt), `LocalNameFilterDictionaries.dictionaryValue`.
-- Danh sách "Đuôi địa danh, tổ chức, thuật ngữ" chỉ để dịch nghĩa (cách A, anh Bửu): mọi đuôi trong danh sách ghép nghĩa name không phải tên người, kể cả 观 花 区 (玄真观 ⇒ Huyền Chân quán); dò ứng viên / luật / phân loại / chữ cuối của bộ gắn nhãn dùng bộ cố định `LocalNameFilterSuffixStore.detectionSuffixes` = file gốc trừ dòng `|off`, không theo danh sách người dùng ⇒ cấu hình mặc định ra đúng số name như trước (10 truyện, so từng hàng). Bỏ bật / tắt: nút ⏸ và chữ "đang tắt" ở màn danh sách, `setEnabled`, trường `enabled` của lớp ghi đè (đọc vào thì bỏ qua, `format` 3), `bundledOffLater`. `|off` trong file gốc nay nghĩa là "không dùng để dò".
-- Công tắc "Ưu tiên tên Latin" ở mục Tuỳ chọn của sheet Lọc name local (nút "?", mặc định tắt), nhớ theo truyện ở `UserDefaults` `localNameFilterLatinByBook` (`LocalNameFilterLatinPreferenceStore`); đổi nguồn chép (đích có giá trị riêng thì giữ), xoá truyện thì xoá. Bật ⇒ mảnh trông như phiên âm (≥ nửa số chữ thuộc tập chữ phiên âm) lấy nghĩa chữ Latin đầu tiên trong từ điển (班森 ⇒ Benson); mảnh phiên âm không có trong từ điển ⇒ mô hình đoán (伽罗斯 ⇒ Garos, 霍尔登帝国 ⇒ Holden đế quốc), ít nguyên âm quá thì bỏ; tên đoán gắn `Name.isGuessedMeaning`, chép sang `AIExtractedName.isGuessedMeaning`.
-- Mô hình đoán tên `translit_latin.json` (~155 KB) ghim commit + sha256 + kích thước trên kho HF `raikiri1498/vietpharse` (`LocalNameFilterLatinModelStore`), chỉ tải khi một lượt bật công tắc mà máy chưa có, vào `translate/LAC/`; `LocalNameFilterLatinModelGate` gộp lượt nạp trùng, giữ mô hình yếu; bộ giải mã `LocalNameFilterLatinModel` đúng SPEC của `Tools/lac-export/export_translit.py` (chùm 16, LM chữ cái bậc 3, hoà điểm giữ thứ tự sinh). Tải / đọc lỗi ⇒ log ❌, vẫn lọc như tắt công tắc.
-- Log `🔎 [LọcName] Xong…` thêm "Latin bật · đoán N" / "Latin bật nhưng thiếu mô hình".
-- Bản tham chiếu Python (`name_meaning.py`, `lacpipe.py` cách A, `compare_meaning.py`): 10 truyện giữ y hàng (chữ Hán, loại, số lần, đã có); với VP của anh đổi nghĩa 诡秘之主 239 / 374 (+45 khi bật Latin, 16 đoán), 巫师 24 / 50 (+10), 以一龙之力 15 / 40 (+11), Naruto 50 / 74 (+3), Sư muội 40 / 268, Đấu La 124 / 655. Bộ giải mã Python khớp `Model.predict` của công cụ học 6000 / 6000 mục VP.
 - Chưa biên dịch (máy Windows), chưa thử trên máy.

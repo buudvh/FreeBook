@@ -28,7 +28,8 @@ struct LocalNameFilterDraft: Codable, Sendable, Identifiable, Equatable {
 
     /// Cố định suốt đời gói: mở lại rồi đóng chưa Lưu ⇒ ghi đè đúng gói này, không tạo gói mới.
     let id: UUID
-    /// Lúc lọc xong (giờ hiện ở hàng của sheet thiết lập) — không đổi khi gói được ghi lại.
+    /// Lúc lọc xong — không đổi khi gói được ghi lại. Gói có từ trước khi có Lịch sử lọc lấy giờ này làm giờ của mục được
+    /// tạo cho nó (`LocalNameFilterHistoryEntry(draft:)`).
     let filteredAt: Date
     /// Lần ghi gần nhất — gói ghi lâu nhất bị bỏ khi quá `LocalNameFilterDraftStore.maxDraftsPerBook`.
     var savedAt: Date

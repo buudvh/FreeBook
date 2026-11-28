@@ -1,7 +1,7 @@
 import Foundation
 
 /// **Gói tạm tự cập nhật** theo danh sách hậu tố / tiền tố + "Không phải name" (plan 2026-11-27-nghia-ten-tay-huyen mục 6,
-/// anh Bửu duyệt; tiền tố + tên người từ plan 2026-11-27-phan-loai-name): mỗi lần trang đầu "Lọc name local" hiện ra (mở sheet, quay lại từ màn danh sách, bấm ‹ ở màn duyệt) sheet gọi
+/// anh Bửu duyệt; tiền tố + tên người từ plan 2026-11-27-phan-loai-name): mỗi lần trang đầu "Lọc name local" hiện ra (mở sheet, quay lại từ màn danh sách, bấm ‹ ở màn duyệt) và mỗi lần trang Lịch sử lọc hiện ra, sheet gọi
 /// `refresh` ngoài main cho các gói của truyện đang mở — gói của truyện khác cập nhật khi mở sheet ở truyện đó.
 ///
 /// Với từng gói:
@@ -28,6 +28,20 @@ enum LocalNameFilterDraftRefresher {
         /// "Nới đoán tên Latin" hiệu lực của truyện (`LocalNameFilterLatinPreferenceStore.loosensLatin(bookId:)`); name có
         /// ghi đè riêng (`AutoMeaning.loosensLatin`) ghép theo ghi đè.
         let loosensLatinGuess: Bool
+    }
+
+    /// Các danh sách / công tắc **hiện tại** của truyện — chụp trên main rồi đưa `refresh` chạy ngoài main (sheet Lọc name
+    /// local và trang Lịch sử lọc cùng dùng).
+    static func currentInputs(bookId: String) -> Inputs {
+        Inputs(
+            bookId: bookId,
+            // "Không phải name" Chung + Riêng của truyện.
+            blockedTerms: LocalNameFilterBookBlocklistStore.effectiveTerms(bookId: bookId),
+            suffixes: LocalNameFilterSuffixStore.shared.allSuffixes(bookId: bookId),
+            prefersLatinNames: LocalNameFilterLatinPreferenceStore.shared.prefersLatin(bookId: bookId),
+            prefixes: LocalNameFilterPrefixStore.shared.allPrefixes(bookId: bookId),
+            loosensLatinGuess: LocalNameFilterLatinPreferenceStore.loosensLatin(bookId: bookId)
+        )
     }
 
     /// Gói sau cập nhật (ghi gần nhất trước). Gọi ngoài main.

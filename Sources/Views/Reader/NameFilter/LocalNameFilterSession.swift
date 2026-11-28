@@ -170,8 +170,8 @@ final class LocalNameFilterSession {
         phase = .setup
     }
 
-    /// Mở lại một gói tạm (`LocalNameFilterSheet+Drafts`): thẳng tới màn duyệt đúng trạng thái đã giữ; đóng chưa Lưu
-    /// ⇒ ghi đè đúng gói này.
+    /// Mở lại một gói tạm (chạm lần lọc chưa lưu ở trang Lịch sử lọc — `LocalNameFilterSheet+History`): thẳng tới màn
+    /// duyệt đúng trạng thái đã giữ; đóng chưa Lưu ⇒ ghi đè đúng gói này.
     func openDraft(_ draft: LocalNameFilterDraft, bookId: String) {
         guard phase == .setup else { return }
         notice = nil
@@ -192,7 +192,7 @@ final class LocalNameFilterSession {
     }
 
     /// Nút ‹ của màn duyệt (plan 2026-11-27-nghia-ten-tay-huyen mục 5): giữ danh sách đang duyệt thành gói tạm — cùng hàm
-    /// với lúc đóng sheet (`keepDraftOnClose`), không toast vì mục "Gói tạm chưa lưu" hiện ngay — rồi về bước chọn, sheet
+    /// với lúc đóng sheet (`keepDraftOnClose`), không toast vì lần lọc ở Lịch sử lọc hiện ngay — rồi về bước chọn, sheet
     /// không đóng. Sau đó đóng sheet thì không ghi gói lần nữa (không còn ở màn duyệt).
     func leaveReview() {
         guard phase == .review else { return }
