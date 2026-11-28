@@ -14,6 +14,15 @@
       "tintColor": "#2BB3A3",
       "versions": [
         {
+          "version": "1.3.1142",
+          "buildVersion": "1372",
+          "date": "2026-11-28T16:04:57Z",
+          "localizedDescription": "- feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người\n- fix: lọc name local không còn nhận tên người kèm hư từ đứng sau như 穆宣和 là một tên\n- feat: mở lại gói tạm của lọc name local thì bỏ tích hết và chỉ tích name chưa có trong Name hoặc VP",
+          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1372/TangCongCac-1.3.1142-1372.ipa",
+          "size": 48786713,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.3.1141",
           "buildVersion": "1371",
           "date": "2026-11-28T16:02:24Z",
@@ -48,22 +57,13 @@
           "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1368/TangCongCac-1.3.1138-1368.ipa",
           "size": 48780690,
           "minOSVersion": "17.0"
-        },
-        {
-          "version": "1.3.1137",
-          "buildVersion": "1367",
-          "date": "2026-11-28T14:30:01Z",
-          "localizedDescription": "- feat: lọc name local nối lại tên bị LAC cắt cụt, trả lại tên chính bị bỏ nhầm và thêm bảy luật rác theo ngữ cảnh",
-          "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1367/TangCongCac-1.3.1137-1367.ipa",
-          "size": 48762308,
-          "minOSVersion": "17.0"
         }
       ],
-      "version": "1.3.1141",
-      "versionDate": "2026-11-28T16:02:24Z",
-      "versionDescription": "- feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người\n- fix: lọc name local không còn nhận tên người kèm hư từ đứng sau như 穆宣和 là một tên",
-      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1371/TangCongCac-1.3.1141-1371.ipa",
-      "size": 48784993,
+      "version": "1.3.1142",
+      "versionDate": "2026-11-28T16:04:57Z",
+      "versionDescription": "- feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người\n- fix: lọc name local không còn nhận tên người kèm hư từ đứng sau như 穆宣和 là một tên\n- feat: mở lại gói tạm của lọc name local thì bỏ tích hết và chỉ tích name chưa có trong Name hoặc VP",
+      "downloadURL": "https://github.com/buudvh/FreeBook/releases/download/build-1372/TangCongCac-1.3.1142-1372.ipa",
+      "size": 48786713,
       "appPermissions": {}
     }
   ],
