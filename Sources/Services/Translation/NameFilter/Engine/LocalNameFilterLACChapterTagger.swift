@@ -17,6 +17,9 @@ enum LocalNameFilterLACChapterTagger {
         /// Các dòng có chữ Hán, nối bằng `\n` (UTF-16).
         let text: [UInt16]
         let taggedLines: Int
+        /// Phần của `others` mang nhãn thuộc `LocalNameFilterRules.verbishTags` (động từ / giới từ…) → số lần — luật rác L22
+        /// (`verb_head`). Chỉ có từ có ít nhất một lần như vậy.
+        var verbish: [LocalNameFilterWord: Int32] = [:]
     }
 
     /// Kết quả đúng thứ tự `texts`; chương `nil` (đọc hỏng) ⇒ `nil`. Cả khối ⇒ `nil` khi task bị huỷ.
@@ -52,6 +55,7 @@ enum LocalNameFilterLACChapterTagger {
     static func tagChapter(_ text: String, tagger: any LACTagging) -> Chapter? {
         var entities: [LocalNameFilterWord: LocalNameFilterLACCounts.Tally] = [:]
         var others: [LocalNameFilterWord: Int32] = [:]
+        var verbish: [LocalNameFilterWord: Int32] = [:]
         var joined: [UInt16] = []
         var taggedLines = 0
         let lines = text.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "\n" || $0 == "\r\n" || $0 == "\r" })
@@ -72,10 +76,11 @@ enum LocalNameFilterLACChapterTagger {
                     entities[word, default: LocalNameFilterLACCounts.Tally()][category] += 1
                 } else {
                     others[word, default: 0] += 1
+                    if LocalNameFilterRules.verbishTags.contains(token.tag) { verbish[word, default: 0] += 1 }
                 }
             }
         }
-        return Chapter(entities: entities, others: others, text: joined, taggedLines: taggedLines)
+        return Chapter(entities: entities, others: others, text: joined, taggedLines: taggedLines, verbish: verbish)
     }
 
     /// Chữ chương cho **bộ luật** (`LocalNameFilterEngine.feed`), như `split_chapters` của Python: bỏ dòng tên chương

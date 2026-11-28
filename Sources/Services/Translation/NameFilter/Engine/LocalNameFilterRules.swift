@@ -69,6 +69,30 @@ enum LocalNameFilterRules {
     /// L4: nhãn thường ≥ 2 lần tổng nhãn thực thể.
     static let commonTagFactor: Int32 = 2
 
+    // MARK: - Luật rác L17–L22 (`lacpipe.py` › `junk_reason`, anh Bửu duyệt 2026-11-28) — `LocalNameFilterJunkRules`
+
+    /// `PREP_HEAD` (L18, 65 chữ): giới từ / phó từ / chữ chỉ số đông đứng ngay trước hậu tố (朝城, 处山脉, 众村).
+    static let prepHeadScalars: Set<UInt32> = scalarSet(
+        "与也于从众会先再几凭到又及只叫可各同向和因在处太奉将就已并当往很才把拉掠数更曾替最朝某此每沿由给而能自至被要让该诸趁跟还这那都随顺"
+    )
+    /// `KIN_TAIL` (L20, 15 chữ): name kết thúc bằng chữ thân tộc này thì L20 không bỏ — khác `kinshipTails` (danh xưng 1
+    /// chữ của bộ luật: có 奶 妈 爸, không có 公 婶 少 母 父 老).
+    static let kinTailScalars: Set<UInt32> = scalarSet("伯兄叔哥奶妈妹姐姑姨嫂弟爷爸舅")
+    /// `VERBISH` (L22, 10 nhãn): động từ / giới từ / liên từ / phó từ / trợ từ / đại từ của LAC.
+    static let verbishTags: Set<String> = ["ad", "c", "d", "p", "r", "u", "v", "vd", "vn", "xc"]
+    /// L17: chỉ xét name ≥ 4 chữ (mỗi phần ≥ 2 chữ).
+    static let gluedEntitiesMinLength = 4
+    /// L20: mỗi từ thường của phép phủ dài 2–6 chữ, cần ≥ 2 từ.
+    static let commonPhraseMaxPart = 6
+    static let commonPhraseMinParts = 2
+    /// L21: tên gốc ≥ 100 lần, name < 1 % số lần của tên gốc.
+    static let nameFragmentBaseMinCount = 100
+    static let nameFragmentRatio = 0.01
+    /// L22: hàng bộ luật < 20 lần; phần trước hậu tố LAC gán đứng riêng ≥ 20 lần, ≥ 60 % nhãn thuộc `verbishTags`.
+    static let verbHeadMaxCount = 20
+    static let verbHeadMinTagged = 20
+    static let verbHeadVerbishRatio = 0.6
+
     // MARK: - Ngưỡng (Python)
 
     static let dominance = 0.6
@@ -125,6 +149,19 @@ enum LocalNameFilterRules {
         static let rankPrefix = "rank_prefix"
         /// L9: hai tên người của danh sách dính liền (姬晴|苟义), name chưa có.
         static let gluedNames = "glued_names"
+        /// Luật rác L17–L22 (name chưa có, sau L9 — `LocalNameFilterJunkRules`): L17 ghép từ hai name của danh sách mà
+        /// phần sau không phải tên người (中州|嵩云宗).
+        static let gluedEntities = "glued_entities"
+        /// L18: phần trước hậu tố là 1 chữ giới từ / chữ chỉ số đông (朝城, 众村).
+        static let prepHead = "prep_head"
+        /// L19: một chữ lặp ≥ 3 lần liền hoặc có chữ số (铿铿铿, 小成955/1000).
+        static let repeatOrDigit = "repeat_or_digit"
+        /// L20: tên người phía LAC phủ trọn bằng ≥ 2 từ thường (幽蓝光影).
+        static let commonPhrase = "common_phrase"
+        /// L22: hàng bộ luật mà phần trước hậu tố là động từ / giới từ… (拜入|宗门).
+        static let verbHead = "verb_head"
+        /// L21: tên người khác của danh sách + 1 chữ, hiếm hơn hẳn (陈诚|头).
+        static let nameFragment = "name_fragment"
         /// Đầu ra: ngoài "Loại cần tìm".
         static let categoryOff = "category_off"
         /// Đầu ra (L15): ngoài "Độ dài name".

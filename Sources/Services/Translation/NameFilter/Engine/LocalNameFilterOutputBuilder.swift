@@ -6,8 +6,11 @@ import Foundation
 ///   mảnh, không phải name đã có: địa danh / tổ chức / họ tộc (LAC hay sót 极星岛, 海神家族); tên người chỉ khi LAC từng gắn
 ///   PER cho đúng cụm đó (đếm thô, trước khi gộp). Hàng bộ luật cũng chịu L5 (`rank_prefix`). Sau khi hợp: L9 — name chưa
 ///   có ghép đúng hai hàng **Nhân danh** của danh sách, mỗi phần ≥ 2 chữ (姬晴|苟义) ⇒ bỏ (`glued_names`). Plan
-///   2026-11-27-phan-loai-name.
-/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có — không có L5 / L9 (như `fallback_rules.py`).
+///   2026-11-27-phan-loai-name. Rồi luật rác L17–L22 (`junk_reason`, 2026-11-28 — `LocalNameFilterJunkRules`): name chưa có
+///   ghép từ hai name (`glued_entities`), giới từ + hậu tố (`prep_head`), chữ lặp / chữ số (`repeat_or_digit`), tên người
+///   toàn từ thường (`common_phrase`), động từ + đuôi ở hàng bộ luật (`verb_head`), tên người + 1 chữ hiếm (`name_fragment`).
+/// - Đường lùi "chỉ bộ luật" (`rulesOnly`): hàng bộ luật (v2), kể cả name đã có — không có L5 / L9 / L17–L22 (như
+///   `fallback_rules.py`).
 ///
 /// Rồi lọc "Không phải name" (`user_blocked`), "Loại cần tìm" (`category_off`) và "Độ dài name" (`length_off`, L15 — đếm
 /// code point, không tính `·`) — cả danh sách hiện dần, cả hai đường — và sắp theo số lần giảm dần, rồi chữ Hán theo code
@@ -20,6 +23,9 @@ struct LocalNameFilterOutputBuilder {
         let term: LocalNameFilterTermKey
         let name: LocalNameFilter.Name
         let isKnown: Bool
+        /// Số chữ của đuôi đã dò khi hàng là địa danh / tổ chức (`rule["suffix"]` của Python), `nil` với tên người / họ tộc —
+        /// luật rác L18 / L22.
+        var suffixLength: Int? = nil
     }
 
     struct Result {
@@ -32,6 +38,15 @@ struct LocalNameFilterOutputBuilder {
         let word: LocalNameFilterWord
         let name: LocalNameFilter.Name
         let isKnown: Bool
+        /// Hàng bộ luật thêm ở bước hợp (`"rule" in r`).
+        var isRuleRow = false
+        /// Hàng bộ luật: `RuleRow.suffixLength`.
+        var ruleSuffixLength: Int?
+
+        var junkRow: LocalNameFilterJunkRules.Row {
+            LocalNameFilterJunkRules.Row(word: word, category: name.category, count: name.count, isRuleRow: isRuleRow,
+                                         ruleSuffixLength: ruleSuffixLength)
+        }
     }
 
     let setup: LocalNameFilterSetup
@@ -81,10 +96,12 @@ struct LocalNameFilterOutputBuilder {
                 reasons[Reason.rankPrefix, default: 0] += 1
                 continue
             }
-            items.append(Item(word: word, name: row.name, isKnown: false))
+            items.append(Item(word: word, name: row.name, isKnown: false, isRuleRow: true,
+                              ruleSuffixLength: row.suffixLength))
             added += 1
         }
         items = droppingGluedNames(items, reasons: &reasons)
+        items = droppingJunk(items, counts: counts, reasons: &reasons)
         return Result(snapshot: finish(items, reasons: reasons, chaptersRead: chaptersRead), unionAdded: added)
     }
 
@@ -101,6 +118,26 @@ struct LocalNameFilterOutputBuilder {
             if glued { reasons[Reason.gluedNames, default: 0] += 1 }
             return !glued
         }
+    }
+
+    /// Luật rác L17–L22 (`junk_reason`): bảng tra dựng từ mọi hàng sau L9 (kể cả name đã có), chỉ xét name chưa có.
+    private func droppingJunk(
+        _ items: [Item],
+        counts: LocalNameFilterLACCounts,
+        reasons: inout [String: Int]
+    ) -> [Item] {
+        let rows = items.map(\.junkRow)
+        let rules = LocalNameFilterJunkRules(rows: rows, setup: setup, dictionaries: meanings.dictionaries, counts: counts)
+        var kept: [Item] = []
+        kept.reserveCapacity(items.count)
+        for (item, row) in zip(items, rows) {
+            if !item.isKnown, let reason = rules.reason(for: row) {
+                reasons[reason, default: 0] += 1
+            } else {
+                kept.append(item)
+            }
+        }
+        return kept
     }
 
     private func finish(_ items: [Item], reasons: [String: Int], chaptersRead: Int) -> LocalNameFilter.Snapshot {

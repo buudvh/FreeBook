@@ -212,6 +212,19 @@ struct LocalNameFilterSetup {
         return nil
     }
 
+    /// `key in PERSON_SUFFIXES` của `lacpipe.py` (L21): `word` đúng là một hậu tố Nhân danh của danh sách người dùng.
+    func isPersonSuffix(_ word: LocalNameFilterWord) -> Bool {
+        personSuffixes[word] != nil
+    }
+
+    /// `any(w.endswith(k) for k in PERSON_SUFFIXES)` (L20): `word` kết thúc bằng một hậu tố Nhân danh của danh sách người
+    /// dùng — mọi độ dài, kể cả 1 chữ và cả từ (khác `personTitle`: không đòi phần trước, không lấy `titles`).
+    func endsWithPersonSuffix(_ word: LocalNameFilterWord) -> Bool {
+        let longest = min(personSuffixMaxLength, word.count)
+        guard longest >= 1 else { return false }
+        return (1...longest).contains { personSuffixes[word.suffix($0)] != nil }
+    }
+
     /// `rest in GLUE_KEEP` của `glued_fragment`: phần thừa là một khoá ≥ 2 chữ của danh sách người dùng, mọi loại (林砚|公子,
     /// 东阳|酒店).
     func isGlueKeep(_ word: LocalNameFilterWord) -> Bool {

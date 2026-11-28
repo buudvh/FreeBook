@@ -188,7 +188,10 @@ final class LocalNameFilterEngine {
                     title: built.title?.string,
                     isGuessedMeaning: built.isGuessed
                 ),
-                isKnown: status == .known
+                isKnown: status == .known,
+                // `"suffix": t[-extra:] if kind in ("place", "sect") else None` — với tên người / họ tộc `extra` là độ
+                // dài họ, không phải đuôi.
+                suffixLength: chosen.kind == .place || chosen.kind == .sect ? chosen.extra : nil
             ))
         }
         return (rows, reasons)

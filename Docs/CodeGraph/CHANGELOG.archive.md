@@ -2,6 +2,22 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1102] - 2026-11-27
+
+### fix: lọc name local không bật lại nhãn đoán, gói tạm chỉ ghép lại nghĩa khi danh sách đuôi đổi, lưu hai đuôi liền nhau không đè nhau
+
+Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo bằng hai agent (phần bộ lọc; màn duyệt + màn Sửa từ dùng chung): không thấy lỗi biên dịch, luồng AI và các chỗ dùng khác của màn Sửa từ giữ nguyên hành vi; sửa các lỗi tìm được.
+
+- **Nhãn "đoán" không bật lại**: xác nhận nghĩa ở màn Sửa từ (bấm Cập nhật, nghĩa không đổi) bỏ cờ, nhưng lần ghép lại sau so cả cờ nên gắn lại nhãn và đếm dư vào toast. Nay màn duyệt (`LocalNameFilterReviewSuffixContext.recompose`) và gói tạm (`LocalNameFilterDraftRefresher`) chỉ đổi khi nghĩa đổi thật.
+- **Gói tạm chỉ ghép lại khi có gì đổi**: gói nhớ dấu danh sách đuôi + công tắc Latin của lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`, `LocalNameFilterMeaningComposer.signature`); trùng dấu ⇒ bỏ qua. Trước đây mỗi lần trang đầu hiện ra, hàng bộ luật địa danh / tổ chức (lúc lọc lấy đúng đuôi đã dò) có thể tự đổi nghĩa theo đường ghép "đuôi dài nhất" dù không ai đổi gì; nay cũng ít khi giữ khoá kho gói lâu.
+- **Lưu hai đuôi liền nhau** (nhất là lúc mô hình Latin đang tải lần đầu): các lượt ghép lại ở màn duyệt chạy lần lượt (`enqueueRecompose`), lượt sau đọc danh sách đã áp lượt trước; chỉ gộp khoá vừa đổi vào `autoMeanings`.
+- **Đổi chữ của đuôi có sẵn** (chip ✓, 街 ⇒ 兰街): ghép lại cả name mang khoá cũ (`onSaved` báo thêm khoá bị thay).
+- Họ tộc (萧家) không có hàng "Đuôi" (đuôi không bao giờ đổi nghĩa họ tộc). Lượt ghép lại xong muộn không ghi vào gói khác đang mở (gắn `draftId`). Thu một đuôi có sẵn thành đuôi mới ⇒ toast "Đã thêm".
+- Tải mô hình Latin dùng phiên riêng có hạn tổng 30 s (`timeoutIntervalForResource`) — mạng nhỏ giọt không còn treo ở "Nạp model…".
+- Comment: khoá đuôi 1–6 chữ (`LocalNameFilter.Suffix.key`), lúc tải mô hình Latin. Tài liệu `.claude/rules/translation.md` / `storage.md` / `books-sources.md` cập nhật cho cả đợt.
+- Ghi nhận, chưa sửa (nhẹ): huỷ lúc đang tải mô hình Latin lần đầu không cắt ngay (cửa nạp là `Task.detached`); dòng "Ví dụ" khi sửa đuôi có sẵn qua chip ✓ dùng mẫu chung.
+- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
+
 ## [1.3.1101] - 2026-11-27
 
 ### feat: thêm đuôi ngay từ màn sửa từ của màn duyệt lọc name local, đuôi dài 1 đến 6 chữ, ghép lại nghĩa ngay

@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1132] - 2026-11-28
+
+### feat: lọc name local chặn rác bằng sáu luật L17 đến L22 cho name chưa có ở đường có model LAC
+
+- Sáu luật rác anh Bửu duyệt 2026-11-28 (đo trên danh sách "Không phải name" 137 cụm của anh), chép đúng `junk_reason` của bản tham chiếu `lacpipe.py`: chỉ name chưa có, chỉ đường có model LAC, chạy ngay sau L9 ở `LocalNameFilterOutputBuilder.withLAC` (đường lùi "chỉ bộ luật" không có, như L5 / L9). Bảng tra dựng một lần từ mọi hàng sau L9 (kể cả name đã có); luật đầu tiên khớp quyết lý do, thứ tự L17 → L18 → L19 → L20 → L22 → L21. Lõi ở `LocalNameFilterJunkRules` (file mới).
+- L17 `glued_entities` (name ≥ 4 chữ): ghép từ hai name của chính danh sách (mỗi phần ≥ 2 chữ; phần sau có thể là name + hậu tố dò 2 rồi 1 chữ), chỗ tách đầu tiên có phần trước là name quyết — phần sau không phải Nhân danh ⇒ bỏ (中州嵩云宗, 镇魔司紫衣卫), là Nhân danh ⇒ giữ (翎王姬桓).
+- L18 `prep_head`: địa danh / tổ chức / thuật ngữ có hậu tố (hàng bộ luật: đuôi đã dò; hàng LAC: hậu tố dò dài nhất) mà phần trước hậu tố đúng 1 chữ giới từ / chữ chỉ số đông `PREP_HEAD` (朝城, 处山脉, 替宗门, 由镇, 众村, 当庄).
+- L19 `repeat_or_digit`: một chữ lặp ≥ 3 lần liền, hoặc có chữ số theo `str.isdigit` của Python (Numeric_Type Decimal / Digit: 0–9, ０–９…; chữ số Hán không tính) — 铿铿铿, 小成955/1000.
+- L20 `common_phrase`: Nhân danh phía LAC (không phải hàng bộ luật), không mở đầu bằng họ, phủ trọn bằng ≥ 2 từ thường VP mỗi từ ≥ 2 chữ (khớp dài nhất từ trái, tối đa 6 chữ, không lùi), không kết thúc bằng chữ thân tộc `KIN_TAIL` hay hậu tố Nhân danh nào của danh sách hiệu lực — 幽蓝光影, 恐怖若斯, 炽白遁光 bỏ; 黑夜女神, 五鬼老三 giữ.
+- L21 `name_fragment`: Nhân danh ≥ 3 chữ = Nhân danh khác của danh sách (≥ 100 lần) + 1 chữ, số lần < 1 % của tên đó, chữ cuối và hai chữ cuối đều không phải hậu tố Nhân danh — 陈诚头, 邓恩先, 宁天俏 bỏ; 王家主 giữ (家主).
+- L22 `verb_head`: hàng bộ luật (bước hợp) địa danh / tổ chức có đuôi, < 20 lần, phần trước đuôi ≥ 2 chữ là từ thường VP mà LAC gán đứng riêng ≥ 20 lần, ≥ 60 % nhãn thuộc `VERBISH` (v vd vn p c d ad u xc r), chưa từng có nhãn thực thể (PER LOC ORG nz nw) — 拜入宗门, 赶往宗门, 虽然海, 直奔海 bỏ; 毁灭森林, 极北城, 冶炼司 giữ. `LocalNameFilterLACCounts` thêm bộ đếm `verbish` (số lần từ mang nhãn `VERBISH`, cộng dồn theo chương như `others`, chỉ từ có ít nhất một lần); hàng bộ luật mang thêm độ dài đuôi đã dò (`RuleRow.suffixLength`, chỉ địa danh / tổ chức).
+- Tên lý do y Python (`LocalNameFilterRules.Reason`), vào `Snapshot.droppedByReason` và log `bỏ [...]` như các luật khác. `LocalNameFilterSetup` thêm `isPersonSuffix` / `endsWithPersonSuffix` (hậu tố Nhân danh của danh sách người dùng, mọi độ dài kể cả cả từ).
+- Bản Python trên 11 truyện: bỏ 85 hàng, đều rác / name ghép; không thêm hàng, không đổi nghĩa hàng nào. Đo trên name đã có: L20 chỉ trùng 六道轮回, 太阳真火, 黑白无常 (3 / ~1.700 — name đã có vẫn giữ), L22 trùng 0.
+- Chưa build (máy Windows); chưa thử trên máy.
+
 ## [1.3.1131] - 2026-11-28
 
 ### feat: giọng vtts Ngọc Huyền đổi sang bản joint 80k và Google Dịch sang mốc joint 60k của lượt train vtts-k6
@@ -480,19 +495,3 @@ DuoiNhanDanh.de-xuat.txt; SuffixKind.person ("Nhân danh").
 (镇魔司 → L6, 无量天君 → L11, 九阶 → L5, 金仙 mở đầu bằng họ); L6 đúng 6 hàng + bộ luật thêm 7 tổ chức (城卫司 巡检司…);
 L9 thêm 唐三海神; L11 lật 26 hàng sang Nhân danh, có hàng nghi sai (新晋真传, 绝顶天骄, 魂斗罗…) — chi tiết ở ghi chú
 bàn giao. Chưa biên dịch (Windows); Views còn một switch thiếu case .person (LocalNameFilterSuffixEditorSheet).
-
-## [1.3.1102] - 2026-11-27
-
-### fix: lọc name local không bật lại nhãn đoán, gói tạm chỉ ghép lại nghĩa khi danh sách đuôi đổi, lưu hai đuôi liền nhau không đè nhau
-
-Gộp xong đợt "nghĩa tên tây huyễn" (1.3.1095–1101), rà soát chéo bằng hai agent (phần bộ lọc; màn duyệt + màn Sửa từ dùng chung): không thấy lỗi biên dịch, luồng AI và các chỗ dùng khác của màn Sửa từ giữ nguyên hành vi; sửa các lỗi tìm được.
-
-- **Nhãn "đoán" không bật lại**: xác nhận nghĩa ở màn Sửa từ (bấm Cập nhật, nghĩa không đổi) bỏ cờ, nhưng lần ghép lại sau so cả cờ nên gắn lại nhãn và đếm dư vào toast. Nay màn duyệt (`LocalNameFilterReviewSuffixContext.recompose`) và gói tạm (`LocalNameFilterDraftRefresher`) chỉ đổi khi nghĩa đổi thật.
-- **Gói tạm chỉ ghép lại khi có gì đổi**: gói nhớ dấu danh sách đuôi + công tắc Latin của lần ghép gần nhất (`LocalNameFilterDraft.meaningSignature`, `LocalNameFilterMeaningComposer.signature`); trùng dấu ⇒ bỏ qua. Trước đây mỗi lần trang đầu hiện ra, hàng bộ luật địa danh / tổ chức (lúc lọc lấy đúng đuôi đã dò) có thể tự đổi nghĩa theo đường ghép "đuôi dài nhất" dù không ai đổi gì; nay cũng ít khi giữ khoá kho gói lâu.
-- **Lưu hai đuôi liền nhau** (nhất là lúc mô hình Latin đang tải lần đầu): các lượt ghép lại ở màn duyệt chạy lần lượt (`enqueueRecompose`), lượt sau đọc danh sách đã áp lượt trước; chỉ gộp khoá vừa đổi vào `autoMeanings`.
-- **Đổi chữ của đuôi có sẵn** (chip ✓, 街 ⇒ 兰街): ghép lại cả name mang khoá cũ (`onSaved` báo thêm khoá bị thay).
-- Họ tộc (萧家) không có hàng "Đuôi" (đuôi không bao giờ đổi nghĩa họ tộc). Lượt ghép lại xong muộn không ghi vào gói khác đang mở (gắn `draftId`). Thu một đuôi có sẵn thành đuôi mới ⇒ toast "Đã thêm".
-- Tải mô hình Latin dùng phiên riêng có hạn tổng 30 s (`timeoutIntervalForResource`) — mạng nhỏ giọt không còn treo ở "Nạp model…".
-- Comment: khoá đuôi 1–6 chữ (`LocalNameFilter.Suffix.key`), lúc tải mô hình Latin. Tài liệu `.claude/rules/translation.md` / `storage.md` / `books-sources.md` cập nhật cho cả đợt.
-- Ghi nhận, chưa sửa (nhẹ): huỷ lúc đang tải mô hình Latin lần đầu không cắt ngay (cửa nạp là `Task.detached`); dòng "Ví dụ" khi sửa đuôi có sẵn qua chip ✓ dùng mẫu chung.
-- `check_architecture.py` chỉ còn violation cũ `JSDom.swift`. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.

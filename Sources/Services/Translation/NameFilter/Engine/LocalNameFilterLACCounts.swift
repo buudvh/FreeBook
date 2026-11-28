@@ -2,8 +2,8 @@ import Foundation
 
 /// Bước 1 của phía LAC (`lacpipe.py`), cộng dồn theo chương: số lần mỗi từ LAC gắn nhãn thực thể theo **nhóm**
 /// (PER ⇒ Nhân danh, LOC ⇒ Địa danh, ORG ⇒ Tổ chức, `nz` / `nw` ⇒ Thuật ngữ), các chương có mặt, số lần từ đó mang nhãn
-/// **khác** (luật (e), luật phân loại L2 / L4), và chuỗi các dòng đã gắn nhãn (`joined` của Python — chỉ để đếm từ có chữ ngoài dải Hán của
-/// bộ luật, như 奥斯汀·格里芬).
+/// **khác** (luật (e), luật phân loại L2 / L4) và phần trong đó mang nhãn động từ / giới từ… (luật rác L22), và chuỗi các
+/// dòng đã gắn nhãn (`joined` của Python — chỉ để đếm từ có chữ ngoài dải Hán của bộ luật, như 奥斯汀·格里芬).
 ///
 /// Chỉ thêm, không sửa phần đã có ⇒ chụp lúc nào cũng như chạy một lần trên đúng phần đã đọc. Một task dùng.
 final class LocalNameFilterLACCounts {
@@ -72,6 +72,9 @@ final class LocalNameFilterLACCounts {
     /// Số lần từ mang nhãn không phải thực thể — mọi từ ≥ 2 chữ có chữ Hán (`other[w]` của `lacpipe.py`; luật (e) và L2 / L4
     /// tự lọc từ cần xét). Bảng lớn cỡ vài chục nghìn mục với truyện 7 MB, sống trong lượt lọc.
     private(set) var others: [LocalNameFilterWord: Int32] = [:]
+    /// Phần của `others` mang nhãn động từ / giới từ / liên từ / phó từ… (`VERBISH` của `lacpipe.py`,
+    /// `LocalNameFilterRules.verbishTags`) — luật rác L22 (`verb_head`). Chỉ từ có ít nhất một lần như vậy (con của `others`).
+    private(set) var verbish: [LocalNameFilterWord: Int32] = [:]
     /// Các dòng có chữ Hán đã gắn nhãn, nối bằng `\n` (UTF-16).
     private(set) var fullText: [UInt16] = []
     private(set) var chaptersRead = 0
@@ -90,6 +93,7 @@ final class LocalNameFilterLACCounts {
             entities[word] = entry
         }
         for (word, count) in chapter.others { others[word, default: 0] += count }
+        for (word, count) in chapter.verbish { verbish[word, default: 0] += count }
         if !chapter.text.isEmpty {
             if !fullText.isEmpty { fullText.append(Self.newline) }
             fullText.append(contentsOf: chapter.text)
