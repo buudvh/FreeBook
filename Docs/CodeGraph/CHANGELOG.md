@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1118] - 2026-11-28
+
+### docs: ghi chú lọc name local cho tiền tố hậu tố riêng truyện, tên kiểu Latin, luật L16, nút ▼ xuất file và hàng Phân loại
+
+Cập nhật `.claude/rules/` cho đợt 1.3.1112–1117 (plan / mockup https://claude.ai/artifact/JwiiU3XFYTk7Rz1hAMS7G2).
+- `translation.md`: kho tiền tố / hậu tố riêng truyện (`LocalNameFilterBookAffixStore`, danh sách hiệu lực Riêng + Chung,
+  API phạm vi R | C và luật chuyển C → R / R → C); tên kiểu Latin `latinAffixed`; L16; `rulesVersion` 3; bản tham chiếu
+  Python `latin_affixed` / `latin_core`; chip phạm vi ở màn danh sách; nút ▼ + Xuất file; màn Quản lý tiền tố, hậu tố;
+  hàng Phân loại; sheet Sửa từ vừa khít; cụm R | C ở màn Sửa từ chế độ danh sách.
+- `ui-conventions.md`: cụm R | C (`DictEntryEditScopeToggle`, chỗ cắm `caseRowTrailing` / `interceptSave`); tên file xuất
+  `DictionaryExportFileName`; nút ▼ của màn duyệt name.
+- `storage.md`: khoá `localNameFilterBookSuffixes` / `localNameFilterBookPrefixes`.
+
 ## [1.3.1117] - 2026-11-28
 
 ### fix: sửa hậu tố tiền tố có sẵn mở màn Sửa từ với cả name, chữ của mục chọn sẵn, chọn chữ khác là đổi chữ của mục
@@ -468,7 +481,3 @@ Gộp nhánh của đợt "Lọc name local bằng LAC" (1.3.1082–1089) xong, 
 ## [1.3.1089] - 2026-11-27
 
 ### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
-
-## [1.3.NNN] - 2026-11-27
-### fix: lọc name local thôi nghe bộ lọc ngay sau sự kiện cuối để Thử lại không bị lượt cũ ghi đè
-- `LocalNameFilterSession.start`: vòng nghe sự kiện thoát ngay sau `.finished` / `.failed`. Trước đó nếu stream của bộ lọc đóng trễ mà người dùng đã bấm "Thử lại", task của lượt cũ tới bước "Bộ lọc dừng mà không báo kết quả" và đẩy lượt mới sang màn lỗi.
