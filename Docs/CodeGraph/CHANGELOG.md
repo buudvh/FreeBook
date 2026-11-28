@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1110] - 2026-11-28
+
+### docs: ghi chú lọc name local theo hậu tố Nhân danh, tiền tố, họ riêng, luật phân loại mới và độ dài name
+
+Cập nhật `.claude/rules/` cho đợt 1.3.1103–1109 (plan `Docs/Plans/2026-11-27-phan-loai-name.md`).
+- `translation.md`: "Đuôi" ⇒ "Hậu tố" (1.299 mục, loại Nhân danh thay Pronouns, chip lọc loại); Tiền tố
+  (`LocalNameFilterPrefixStore`, chỉ ghép trước tên Latin); Họ riêng (`QuickTranslationSurnameStore.nameFilter`);
+  thứ tự phân loại L11 → L1 / L2 → L3 / L4, L6, lý do bỏ `rank_prefix` / `glued_names` / `length_off`; bản tham chiếu
+  11 truyện `run11_phanloai.sh` + `cmp_rules_phanloai.py`; hàng Tiền tố / Hậu tố ở màn duyệt; Độ dài name; popup Lưu;
+  đầu thẻ dính; dấu gói tạm tính cả tiền tố.
+- `ui-conventions.md`: danh sách áp màn Sửa từ; popup ba cách lưu ở chỗ không phải nhập file.
+- `storage.md`: các khoá `UserDefaults` / `@AppStorage` của danh sách lọc name.
+
 ## [1.3.1109] - 2026-11-28
 
 ### feat: sheet lọc name local có danh sách Tiền tố và Họ, thanh kéo hai đầu chọn độ dài name
@@ -400,18 +413,3 @@ Bổ sung cho commit "bộ nhận diện tên LAC chạy trên máy…" theo lu�
 - LACModelStore.validatePathSafety(for:): đích phải nằm trong translate/LAC/; xoá cả thư mục model thì kiểm thư mục đó nằm trong translate/. Chỉ giải symlink phần đã có trên đĩa (file chưa có ⇒ giải thư mục cha rồi ghép tên) để tiền tố /private của /var không làm so lệch.
 - LACModelDownloader gọi kiểm này trước khi xoá / chuyển file đã tải vào chỗ và trước khi ghi manifest; lỗi ⇒ downloadFailed.
 - check_architecture.py chỉ còn violation cũ JSDom.swift. Chưa biên dịch được tại chỗ (Windows).
-
-## [1.3.1083] - 2026-11-27
-
-### feat: bộ nhận diện tên LAC chạy trên máy, tự tải model lần đầu và tự kiểm với mẫu đối chiếu
-
-Phần "model LAC bằng Swift" của đợt Lọc name local bằng LAC (anh Bửu duyệt 2026-11-27, plan Docs/Plans/2026-11-27-loc-name-lac.md): thay thân LACModel.prepare (chữ ký giữ nguyên).
-
-- Tải model: lần đầu dùng tải ~19 MB từ kho Hugging Face datasets/raikiri1498/vietpharse, thư mục lac/, ghim commit 73bb76d4 (LACModelMirror, ghim cả sha256 của lac_manifest.json) vào Application Support/translate/LAC/ (LACModelStore). Thứ tự: manifest ⇒ từng file vào file tạm của hệ thống ⇒ đúng kích thước + sha256 ⇒ chuyển vào ⇒ ghi manifest cuối cùng. Tiến độ 0…1 theo tổng byte; resume theo từng file; huỷ ⇒ CancellationError, file tạm luôn bị xoá; không đặt file .partial dưới translate/ vì Dọn rác coi *.partial là rác.
-- Bộ gán nhãn LACTagger viết lại LAC 2.1.2 theo README của kho: tách từ sơ bộ trên small_seg.dic (LACSegmenter, mọi vị trí theo Unicode scalar, điểm Double từ manifest cộng đúng thứ tự ⇒ hoà giống hệt LAC), ra id word.dic + q2b.dic (LACVocabulary), hai lớp BiGRU + FC bằng Accelerate (LACNetwork: vDSP_mmul chiếu cả câu một lần, mỗi bước một vDSP_mmul 1×H, vvexpf / vvtanhf, không cấp phát trong vòng lặp bước; embedding fp16 đọc thẳng từ file ánh xạ bộ nhớ), Viterbi (LACViterbi), gộp nhãn B/I như parse_result. Từ điển tra bằng cây tiền tố theo scalar (LACScalarTrie), không dùng String làm khoá (Swift so tương đương chính tắc, LAC so code point). Bất biến ⇒ gọi song song nhiều chương được; dòng dài hơn 2.000 chữ cắt sau dấu hết câu rồi gán nhãn từng đoạn.
-- Mỗi lần nạp: kiểm sha256 mọi file (hỏng ⇒ xoá thư mục + invalidFiles, lần sau tải lại), rồi tự kiểm 203 câu lac_golden.json (LACSelfCheck): tách từ + id phải trùng 100%, nhãn cuối lệch tối đa 3 câu, lệch hơn ⇒ selfCheckFailed (giữ file) và log ❌ mẫu đầu tiên kèm chuỗi LAC / app.
-- LACModelGate: nhiều lượt gọi cùng lúc chỉ một lượt tải + nạp, tiến độ phát cho mọi người chờ; người chờ bị huỷ chỉ nhận CancellationError cho riêng mình, lượt gốc dừng khi người chờ cuối rời đi; giữ bộ gán nhãn yếu, còn sống thì lượt sau trả ngay không báo gì.
-- Log 🧠 [LAC]: thời gian tải, nạp, tự kiểm, số câu lệch; lỗi thật kèm ❌.
-- Đối chiếu trên PC bằng bản Python chép dòng-dòng phần Swift (không commit): golden 203 / 203 trùng cả bốn bước; 19.749 dòng truyện trùng tách từ + id 100%; 2.000 dòng chạy đủ mạng lệch nhãn 2 dòng (embedding fp16, như lúc xuất).
-- Giấy phép Apache-2.0 của LAC ở Docs/ThirdParty/LAC-LICENSE.txt; công cụ xuất model Tools/lac-export/ (export_lac.py, lac_shim.py, bản giấy phép).
-- check_architecture.py chỉ còn violation cũ JSDom.swift. Chưa biên dịch được tại chỗ (Windows); chưa thử trên máy.
