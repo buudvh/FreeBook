@@ -2,6 +2,23 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1105] - 2026-11-27
+
+### feat: màn duyệt name giữ đầu thẻ, ô tìm và chip loại dính trên cùng khi cuộn
+
+Plan 2026-11-27-phan-loai-name mục L14 (anh Bửu: "các chip và search hiển thị kiểu sticky để scroll xuống vẫn thấy"),
+mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Màn duyệt — cuộn xuống".
+
+- ReaderAINameReviewCardView: cả thẻ thành một LazyVStack(pinnedViews: [.sectionHeaders]) với một Section; đầu thẻ
+  (Tên riêng (N), menu sắp xếp, Chọn hết / Bỏ chọn) + ô tìm + hàng chip loại là tiêu đề section (stickyHeader), cuộn
+  xuống vẫn nằm trên cùng vùng cuộn của sheet. Luồng AI không có chip ⇒ dính đầu thẻ + ô tìm.
+- Tiêu đề tô nền đặc bằng nền thẻ (cardBackground, tô sau đệm nên phủ cả dải 12 pt phía trên): hàng cuộn qua bên dưới
+  không lộ chữ. Lề trên của thẻ dời vào tiêu đề; không đổ bóng lúc dính (đo vị trí cần onGeometryChange — iOS 18).
+- Hành vi lọc / chọn giữ nguyên: ô tìm + chip chỉ ẩn hàng, Chọn hết / Bỏ chọn theo mục đang hiện, Lưu lưu mọi mục đang
+  chọn; sheet giữ scrollDismissesKeyboard. Thẻ phải là con trực tiếp của ScrollView của ReaderAINameReviewSheet.
+
+Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1104] - 2026-11-27
 
 ### feat: lọc name local có danh sách họ riêng, thêm họ 洛 và 玉, chép một lần họ đã sửa ở danh sách họ của rule dịch nhanh

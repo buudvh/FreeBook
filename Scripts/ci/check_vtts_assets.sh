@@ -4,9 +4,10 @@
 # dựng lại đều nằm trong `Vendor/vtts` (anh Bửu: phòng repo upstream / CMUdict bị xoá) — xem `Vendor/vtts/README.md`.
 #
 # Kiểm (thoát mã ≠ 0 nếu hỏng):
-#   1. SHA256 của 4 model (theo `assets/SHA256SUMS` — 4 dòng vi-en nguyên văn của release v0.11.0) và của `lex_en.bin` /
-#      `cmudict.dict` / 2 giọng tự train (theo `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào bundle app)
-#      có đúng 4 giọng M + `lex_en.bin`, không thừa file nào;
+#   1. SHA256 của 2 model `nu-10` M + S (theo `assets/SHA256SUMS` — 2 dòng `nu-10` nguyên văn của release v0.11.0; dòng
+#      `nam-1` bỏ từ 1.3.1135) và của `lex_en.bin` / `cmudict.dict` / giọng tự train Ngọc Huyền (theo
+#      `assets/LOCAL_SHA256SUMS`); `assets/vtts/` (thư mục đóng vào bundle app) có đúng 2 giọng M + `lex_en.bin`, không
+#      thừa file nào;
 #   2. dựng `vtts_say` của upstream (đã vendor ở `tools/runtime/tools/`) bằng clang trên runtime đã vendor, với ĐÚNG cờ
 #      tắt ngôn ngữ của gói SPM (+ stub `vtts_say_lex_stubs.c` cho 3 hàm init ZH / JA / RU đã tắt); đọc thử câu Việt + Anh bằng từng giọng M ở chế độ auto: phải thấy bộ token vi-en, chế độ
 #      auto, đã nạp VLEX, id < vocab, WAV ≥ 1 s và không im lặng;
@@ -29,14 +30,12 @@ LEX="$BUNDLED/lex_en.bin"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/build/vtts}"
 SMOKE_DIR="${SMOKE_DIR:-$REPO_ROOT/build/vtts-smoke}"
 
-# "<id giọng> <file model>" — giọng đóng vào app; id trùng `VttsVoice.id` (Swift). `ngoc-huyen` (1.3.1044) và
-# `google-dich` (1.3.1046) do FreeBook tự train (chưng cất bản M từ thầy VITS) — không có trong release upstream, SHA256
-# ở `LOCAL_SHA256SUMS` (`Vendor/vtts/THIRD_PARTY_NOTICES.md`).
+# "<id giọng> <file model>" — giọng đóng vào app; id trùng `VttsVoice.id` (Swift). `ngoc-huyen` (1.3.1044) do FreeBook
+# tự train (chưng cất bản M từ thầy VITS) — không có trong release upstream, SHA256 ở `LOCAL_SHA256SUMS`
+# (`Vendor/vtts/THIRD_PARTY_NOTICES.md`). `nam-1` và `google-dich` gỡ ở 1.3.1135 (anh Bửu: "bỏ giọng nam và google đi").
 VOICES=(
   "nu-10 vtts-vien-nu10-m-v0.11.q8.vtts"
-  "nam-1 vtts-vien-nam1-m-v0.11.q8.vtts"
   "ngoc-huyen vtts-ngochuyen-m-k6.q8.vtts"
-  "google-dich vtts-googledich-m-k6.q8.vtts"
 )
 
 # Phải khớp `disabledLanguages` trong Vendor/vtts/Package.swift (= OPT_LANGS của tools/runtime/Makefile).
@@ -130,7 +129,7 @@ check_hashes() {
     echo "  ${path#"$ASSETS/"} OK"
     count=$((count + 1))
   done < "$ASSETS/SHA256SUMS"
-  [ "$count" -eq 4 ] || die "SHA256SUMS có $count model, mong 4"
+  [ "$count" -eq 2 ] || die "SHA256SUMS có $count model, mong 2 (nu-10 M + S)"
   # Từ điển dựng tại chỗ + CMUdict nguồn + giọng tự train (đường dẫn tương đối trong assets/).
   while read -r want name; do
     [ -n "${name:-}" ] || continue
@@ -139,9 +138,9 @@ check_hashes() {
     [ "$got" = "$want" ] || die "SHA256 của assets/$name lệch: $got ≠ $want"
     echo "  $name OK"
   done < "$ASSETS/LOCAL_SHA256SUMS"
-  # Thư mục đóng vào bundle: đúng 4 giọng M + VLEX (file thừa ⇒ IPA phình âm thầm).
+  # Thư mục đóng vào bundle: đúng 2 giọng M + VLEX (file thừa ⇒ IPA phình âm thầm).
   count="$(find "$BUNDLED" -type f | wc -l | tr -d '[:space:]')"
-  [ "$count" -eq 5 ] || die "assets/vtts/ có $count file, mong đúng 5 (4 giọng M + lex_en.bin)"
+  [ "$count" -eq 3 ] || die "assets/vtts/ có $count file, mong đúng 3 (2 giọng M + lex_en.bin)"
 }
 
 check_vtts_say() {

@@ -14,10 +14,12 @@ Ghi chú của FreeBook, đặt cạnh `LICENSE` / `NOTICE` nguyên văn của v
 
 | File | Nguồn | Giấy phép | Vào IPA? |
 |---|---|---|---|
-| `vtts/vtts-vien-nu10-m-v0.11.q8.vtts`, `vtts/vtts-vien-nam1-m-v0.11.q8.vtts` | GitHub release `v0.11.0` của `tuanpmt/vtts` (từ 1.3.1052; `nu-10` = model v0.9.1 train joint 80k bước, `nam-1` trùng byte v0.4.0), khớp các dòng tương ứng của `SHA256SUMS` release | Apache-2.0, như repo vtts | Có (`FreeBook.app/vtts/`) |
-| `extra/vtts-vien-nu10-s-v0.11.q8.vtts`, `extra/vtts-vien-nam1-s-v0.11.q8.vtts` | Như trên (bản S, dự trữ) | Apache-2.0 | Không |
+| `vtts/vtts-vien-nu10-m-v0.11.q8.vtts` | GitHub release `v0.11.0` của `tuanpmt/vtts` (từ 1.3.1052; `nu-10` = model v0.9.1 train joint 80k bước), khớp dòng tương ứng của `SHA256SUMS` release | Apache-2.0, như repo vtts | Có (`FreeBook.app/vtts/`) |
+| `extra/vtts-vien-nu10-s-v0.11.q8.vtts` | Như trên (bản S, dự trữ) | Apache-2.0 | Không |
 | `vtts/vtts-ngochuyen-m-k6.q8.vtts` (giọng "Nữ · Ngọc Huyền", 1.3.1044; bản k6 từ 1.3.1131) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (theo dữ liệu train) | Có |
-| `vtts/vtts-googledich-m-k6.q8.vtts` (giọng "Nữ · Google Dịch", 1.3.1046; bản k6 từ 1.3.1131) | FreeBook tự train (mục bên dưới), SHA256 ở `LOCAL_SHA256SUMS` | **CC BY-NC 4.0** (thầy warm-start từ thầy Ngọc Huyền) | Có |
+
+Giọng `nam-1` (release, Apache-2.0) và giọng "Nữ · Google Dịch" (tự train, 1.3.1046) **đã gỡ khỏi repo và IPA ở 1.3.1135**
+(anh Bửu); bản từ 1.3.1046 tới 1.3.1134 có chứa chúng — mục Google Dịch bên dưới giữ để ghi nguồn cho các bản đó.
 | `vtts/lex_en.bin` (VLEX: từ điển tiếng Anh + bảng letter-to-sound) | Dựng bằng `tools/scripts/frontend/build_lexicon.py` từ `cmudict/cmudict.dict` (SHA256 ở `LOCAL_SHA256SUMS`) | Phần dẫn xuất từ CMUdict theo **BSD 2-clause** — `LICENSE-cmudict.txt` | Có |
 | `cmudict/cmudict.dict` | **CMU Pronouncing Dictionary**, `cmusphinx/cmudict` commit `74790861f652b15e4ac49015a90074ad62a27690` (SHA256 trùng mức `tools/src/vtts/frontend/en/cmudict.py` ghim) | **BSD 2-clause** — `LICENSE-cmudict.txt` | Không |
 
@@ -47,10 +49,10 @@ phí, không quảng cáo, không thu phí; muốn thương mại hoá phải b�
 
 Trong app, dòng phụ của giọng ghi "pnnbao-ump · CC BY-NC 4.0" (`VttsVoice.credit`).
 
-## Giọng Google Dịch (`vtts/vtts-googledich-m-k6.q8.vtts`)
+## Giọng Google Dịch (đã gỡ ở 1.3.1135; có trong bản 1.3.1046 – 1.3.1134)
 
-Model dẫn xuất do FreeBook train, phân phối theo **CC BY-NC 4.0** như giọng Ngọc Huyền (cùng điều kiện phi thương mại,
-cùng dòng ghi nguồn trong app):
+Model dẫn xuất do FreeBook train, phân phối (trong các bản trên) theo **CC BY-NC 4.0** như giọng Ngọc Huyền (cùng điều
+kiện phi thương mại, cùng dòng ghi nguồn trong app):
 
 - **Tiếng dùng để train thầy**: tiếng đọc của Google Dịch (translate.google.com, giọng tiếng Việt) cho ~17.700 câu, lấy
   qua endpoint web **không chính thức** — không có giấy phép nào của Google cấp cho việc này. Tên "Google Dịch" chỉ để mô

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1135] - 2026-11-28
+
+### feat: gỡ giọng vtts nam-1 và Google Dịch khỏi app, chỉ còn nu-10 và Ngọc Huyền
+
+- Anh Bửu: "Cải thiện ngọc huyền, bỏ giọng nam và google đi" → duyệt "Cả 2". Danh sách giọng vtts có sẵn chỉ còn `Nữ · nu-10` và `Nữ · Ngọc Huyền` (+ giọng tự nhập). `VttsVoice.bundled = [.nu10, .ngocHuyen]`; bỏ `nam1` / `googleDich`. Ai đang chọn `nam-1` / `google-dich` (cả khi vtts là giọng dự phòng) ⇒ `VttsVoice.resolve` trả `nu-10` như mọi id lạ, không cần chuyển dữ liệu.
+- Xoá khỏi repo + IPA: `assets/vtts/vtts-vien-nam1-m-v0.11.q8.vtts`, `assets/extra/vtts-vien-nam1-s-v0.11.q8.vtts`, `assets/vtts/vtts-googledich-m-k6.q8.vtts` (IPA nhẹ đi ~5 MB). Bản sao ở `D:\Documents\vtts-voices\` (`Nam nam-1 (v0.11 M/S).vtts`, `Google Dịch (k6 60k).vtts`) — cần thì nhập lại bằng "Nhập .vtts".
+- `assets/SHA256SUMS` còn 2 dòng `nu-10` (nguyên văn release `v0.11.0`), `LOCAL_SHA256SUMS` bỏ dòng Google Dịch; `Scripts/ci/check_vtts_assets.sh`: `VOICES` còn 2 giọng, mong 2 dòng SHA256SUMS và đúng 3 file trong `assets/vtts/`; bước Package IPA của `build-ipa.yml` kiểm `lex_en.bin` + `nu-10` + Ngọc Huyền.
+- `Vendor/vtts/README.md`, `THIRD_PARTY_NOTICES.md` (mục Google Dịch giữ để ghi nguồn cho bản 1.3.1046 – 1.3.1134), `.claude/rules/tts.md`, `.claude/rules/ci-release.md` cập nhật theo.
+- Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
+
 ## [1.3.1134] - 2026-11-28
 
 ### feat: lọc name local thêm luật L23 đến L25 bỏ mảnh cắt ngang từ, tên cắt mất danh xưng và cụm mở đầu bằng lượng từ
@@ -446,22 +456,5 @@ https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Bấm Lưu → chọn c
   ReaderAINameReviewSheet.savedToast: "Đã lưu N mục vào … của truyện" như cũ; Chỉ thêm key mới thêm " · giữ nguyên M mục
   đã có"; mọi name đã có ⇒ "Không có mục mới …" (thông báo, không phải lỗi — lọc name local vẫn xoá gói tạm). Tóm tắt
   trong tin AI ở chế độ Chỉ thêm key mới không khẳng định đã lưu đủ N tên.
-
-Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1105] - 2026-11-27
-
-### feat: màn duyệt name giữ đầu thẻ, ô tìm và chip loại dính trên cùng khi cuộn
-
-Plan 2026-11-27-phan-loai-name mục L14 (anh Bửu: "các chip và search hiển thị kiểu sticky để scroll xuống vẫn thấy"),
-mockup https://claude.ai/artifact/9qgrqxGZpkiCQHQdK4vgbx khung "Màn duyệt — cuộn xuống".
-
-- ReaderAINameReviewCardView: cả thẻ thành một LazyVStack(pinnedViews: [.sectionHeaders]) với một Section; đầu thẻ
-  (Tên riêng (N), menu sắp xếp, Chọn hết / Bỏ chọn) + ô tìm + hàng chip loại là tiêu đề section (stickyHeader), cuộn
-  xuống vẫn nằm trên cùng vùng cuộn của sheet. Luồng AI không có chip ⇒ dính đầu thẻ + ô tìm.
-- Tiêu đề tô nền đặc bằng nền thẻ (cardBackground, tô sau đệm nên phủ cả dải 12 pt phía trên): hàng cuộn qua bên dưới
-  không lộ chữ. Lề trên của thẻ dời vào tiêu đề; không đổ bóng lúc dính (đo vị trí cần onGeometryChange — iOS 18).
-- Hành vi lọc / chọn giữ nguyên: ô tìm + chip chỉ ẩn hàng, Chọn hết / Bỏ chọn theo mục đang hiện, Lưu lưu mọi mục đang
-  chọn; sheet giữ scrollDismissesKeyboard. Thẻ phải là con trực tiếp của ScrollView của ReaderAINameReviewSheet.
 
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.

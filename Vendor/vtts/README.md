@@ -1,20 +1,21 @@
 # vtts trong FreeBook
 
-Trình đọc **vtts Việt–Anh (Offline)**: runtime C99 + 2 giọng của https://github.com/tuanpmt/vtts (Apache-2.0) + 2 giọng
-FreeBook tự train trên runtime / trainer cùng commit: **Ngọc Huyền** (1.3.1044) và **Google Dịch** (1.3.1046), cả hai
-theo CC BY-NC 4.0. Mọi thứ
-cần để build, kiểm thử và dựng lại đều nằm trong thư mục này — CI và app **không** tải gì từ upstream hay CMUdict (anh
-Bửu, 2026-11-20: phòng repo upstream bị xoá).
+Trình đọc **vtts Việt–Anh (Offline)**: runtime C99 + giọng `nu-10` của https://github.com/tuanpmt/vtts (Apache-2.0) +
+giọng FreeBook tự train trên runtime / trainer cùng commit: **Ngọc Huyền** (1.3.1044, CC BY-NC 4.0). Giọng `nam-1`
+(release) và **Google Dịch** (tự train, 1.3.1046) đã gỡ khỏi app ở 1.3.1135 (anh Bửu: "bỏ giọng nam và google đi"); bản
+sao file nằm ở `D:\Documents\vtts-voices\` trên máy anh Bửu, cần thì nhập lại trong app bằng "Nhập .vtts". Mọi thứ cần
+để build, kiểm thử và dựng lại đều nằm trong thư mục này — CI và app **không** tải gì từ upstream hay CMUdict (anh Bửu,
+2026-11-20: phòng repo upstream bị xoá).
 
 | Đường dẫn | Nội dung |
 |---|---|
 | `VTTS_COMMIT.txt` | Commit upstream đang ghim (runtime, công cụ, VLEX cùng một commit) |
 | `Package.swift`, `Sources/CVTTS/runtime/` | Gói SPM `CVTTS`: runtime chép nguyên văn, 27 ngôn ngữ phụ tắt (`VTTS_ENABLE_<L>=0`) |
 | `Sources/CVTTS/bridge/` | Shim C của FreeBook (`vtts_bridge.h` — header duy nhất Swift thấy) |
-| `assets/vtts/` | Đóng vào app (`FreeBook.app/vtts/`): 2 giọng M của release + `vtts-ngochuyen-m-k6.q8.vtts` + `vtts-googledich-m-k6.q8.vtts` + `lex_en.bin` — **chỉ** 5 file này (CI kiểm) |
-| `assets/extra/` | Bản S của 2 giọng release (dự trữ, không vào app) |
+| `assets/vtts/` | Đóng vào app (`FreeBook.app/vtts/`): `nu-10` M của release + `vtts-ngochuyen-m-k6.q8.vtts` + `lex_en.bin` — **chỉ** 3 file này (CI kiểm) |
+| `assets/extra/` | Bản S của `nu-10` (dự trữ, không vào app) |
 | `assets/cmudict/cmudict.dict` | CMUdict nguồn để dựng lại `lex_en.bin` |
-| `assets/SHA256SUMS` | 4 dòng vi-en (nguyên văn) của `SHA256SUMS` release model `v0.11.0`; `LOCAL_SHA256SUMS`: `lex_en.bin` + `cmudict.dict` + 2 giọng tự train |
+| `assets/SHA256SUMS` | 2 dòng `nu-10` (nguyên văn) của `SHA256SUMS` release model `v0.11.0`; `LOCAL_SHA256SUMS`: `lex_en.bin` + `cmudict.dict` + giọng Ngọc Huyền |
 | `tools/` | Công cụ upstream cùng commit: `build_lexicon.py` + module Python nó cần, `vtts_say.c`, `Makefile` |
 | `rebuild_lex_en.sh` | Dựng lại `lex_en.bin` từ `tools/` + `cmudict.dict`, không mạng (Python ≥ 3.11, ~8 phút) |
 
@@ -48,13 +49,14 @@ bằng `rebuild_lex_en.sh` trên máy đó **chưa chạy xong**: hết RAM ở 
 
 Tải file `.vtts` + `SHA256SUMS` của release, kiểm khớp, thay trong `assets/vtts/` (M) và `assets/extra/` (S), thay
 `assets/SHA256SUMS` bằng **đúng các dòng của file mình dùng**, giữ nguyên văn từng dòng (release từ `v0.11.0` gộp mọi
-giọng — 22 file — nên không chép cả file; script đòi đúng 4 dòng); sửa tên file trong `VttsVoice` (`source: .bundled(fileName:)`, Swift) và `VOICES` trong
+giọng — 22 file — nên không chép cả file; script đòi đúng 2 dòng); sửa tên file trong `VttsVoice` (`source: .bundled(fileName:)`, Swift) và `VOICES` trong
 `Scripts/ci/check_vtts_assets.sh` + danh sách file của bước "Package IPA" (`build-ipa.yml`). `assets/vtts/` phải còn
-đúng 5 file. Model mới phải đọc được bằng runtime ghim ở `VTTS_COMMIT.txt`: so header (dims + bảng tensor) với file cũ,
+đúng 3 file. Model mới phải đọc được bằng runtime ghim ở `VTTS_COMMIT.txt`: so header (dims + bảng tensor) với file cũ,
 và bước đọc thử của CI là phép kiểm cuối. Lần gần nhất: 1.3.1052 — release `v0.11.0`, `nu-10` đổi sang model train
-giai đoạn joint 80k bước (v0.9.1 / v0.10.2), `nam-1` trùng byte v0.4.0.
+giai đoạn joint 80k bước (v0.9.1 / v0.10.2). Thêm lại một giọng release (vd `nam-1`): thêm file + dòng `SHA256SUMS`,
+`VttsVoice`, `VOICES`, rồi sửa số dòng / số file mong đợi của script.
 
-## Giọng tự train (Ngọc Huyền, Google Dịch)
+## Giọng tự train (Ngọc Huyền)
 
 `assets/vtts/vtts-ngochuyen-m-k6.q8.vtts` (1.3.1131, thay `vtts-ngochuyen-m-k4.q8.vtts` của 1.3.1044) =
 `distill_nh/snapshots/M-vocos-p-bi-joint_0080000.q8.vtts` của lượt Kaggle `vtts-k6` (2026-11-28; trùng byte
@@ -64,12 +66,8 @@ vtts cùng commit `VTTS_COMMIT.txt` (runtime đọc được). Lượt `vtts-k4`
 `vtts-k6` chạy tiếp joint 20k → **80k** theo công thức chưng cất upstream v0.9.1 (cách upstream chữa lớp ồn "buzzy" của
 `nu-10`, 1.3.1052).
 
-`assets/vtts/vtts-googledich-m-k6.q8.vtts` (1.3.1131, thay `vtts-googledich-m-k4.q8.vtts` của 1.3.1046) =
-`distill_gg/snapshots/M-vocos-p-bi-joint_0060000.q8.vtts` của chuỗi `gg` cùng lượt `vtts-k6` — mốc joint **60k**, không
-phải file cuối `distill_gg/M-vocos-p-bi.q8.vtts` (80k). Tiếng Google Dịch (notebook `vtts-gg-data`, ~42 giờ, lọc ASR còn
-~35 giờ) cho thầy VITS warm-start từ thầy Ngọc Huyền, rồi chưng cất như trên. Tiếng thầy lấy qua endpoint **không chính
-thức** của Google Dịch — rủi ro bị yêu cầu gỡ, anh Bửu đã nghe báo và vẫn chọn đóng vào app; bị yêu cầu gỡ thì xoá file +
-`VttsVoice.googleDich` + dòng `VOICES` / `LOCAL_SHA256SUMS`, sửa số file mong đợi của script.
+Giọng **Google Dịch** (cùng cách làm, thầy train trên tiếng Google Dịch lấy qua endpoint không chính thức, đóng vào app
+1.3.1046, bản k6 joint 60k ở 1.3.1131) **đã gỡ ở 1.3.1135**; bảng điểm dưới đây giữ để tra cứu.
 
 **Chọn mốc**: notebook `vtts-k6` chấm từng mốc 10k bằng runtime C (`vtts_say --lang auto`, 12 câu tiếng Việt kiểu truyện
 + 4 câu trộn / Anh), luật anh Bửu duyệt = lấy mốc **UTMOS tiếng Việt cao nhất**:
@@ -86,6 +84,7 @@ Thầy VITS: Ngọc Huyền 3,157, Google Dịch 3,554. Google Dịch 80k ít r�
 cũ ⇒ theo luật lấy 60k (rít nhỉnh hơn bản cũ chút). UTMOS không trùng hẳn với "rè" tai nghe — không hứa hết rè; rè của
 Google Dịch có sẵn trong tiếng Google Dịch gốc.
 
-Cả hai: SHA256 ở `LOCAL_SHA256SUMS`; header (33 dim, 122 tensor, `token_set` vi-en) trùng từng byte với bản k4; CI đọc
-thử như hai giọng release. Thay bằng lượt train mới: thay file (giữ tên hoặc sửa cả `VttsVoice` + `VOICES`), cập nhật
-dòng `LOCAL_SHA256SUMS`.
+Ngọc Huyền: SHA256 ở `LOCAL_SHA256SUMS`; header (33 dim, 122 tensor, `token_set` vi-en) trùng từng byte với bản k4; CI
+đọc thử như giọng release. Thay bằng lượt train mới: thay file (giữ tên hoặc sửa cả `VttsVoice` + `VOICES`), cập nhật
+dòng `LOCAL_SHA256SUMS`. Đang thử (28/11): train tiếp thầy Ngọc Huyền 60k → ~104k bước (notebook `vtts-nh-teacher2`)
+rồi chưng cất lại trò từ 80k, có lượt đối chứng theo thầy cũ (`vtts-k8`).
