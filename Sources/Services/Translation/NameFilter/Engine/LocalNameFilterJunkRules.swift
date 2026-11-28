@@ -108,8 +108,11 @@ struct LocalNameFilterJunkRules {
         }
         if Self.hasRepeatOrDigit(word) { return Reason.repeatOrDigit }
         if Self.hasQuantityHead(word) { return Reason.quantityHead }
-        if row.category == .person, !row.isRuleRow, dictionaries.surnameLength(of: word) == 0,
-           !Rules.kinTailScalars.contains(word.last), !setup.endsWithPersonSuffix(word), isCoveredByCommonWords(word) {
+        // Đợt 6 (2026-11-28): name mở đầu bằng họ thì chỉ bỏ khi từ thường đầu tiên của phép phủ là động từ / giới từ… theo
+        // LAC (张开|巨口 — đo 11 truyện: không trúng name đã có nào).
+        if row.category == .person, !row.isRuleRow,
+           !Rules.kinTailScalars.contains(word.last), !setup.endsWithPersonSuffix(word), isCoveredByCommonWords(word),
+           dictionaries.surnameLength(of: word) == 0 || isVerbishWord(firstCommonWord(of: word)) {
             return Reason.commonPhrase
         }
         if isVerbHead(row) { return Reason.verbHead }
@@ -220,11 +223,29 @@ struct LocalNameFilterJunkRules {
     private func isVerbHead(_ row: Row) -> Bool {
         guard row.isRuleRow, row.category == .place || row.category == .organization,
               let suffixLength = row.ruleSuffixLength, row.count < Rules.verbHeadMaxCount else { return false }
-        let head = row.word.dropLast(suffixLength)
-        guard head.count >= 2, dictionaries.status(word: head) == .common, counts.entities[head] == nil else { return false }
+        return isVerbishWord(row.word.dropLast(suffixLength))
+    }
+
+    /// `verbish_word(head)`: từ thường VP ≥ 2 chữ mà LAC gán đứng riêng ≥ 20 lần, ≥ 60 % nhãn `VERBISH`, chưa từng gắn nhãn
+    /// thực thể (không có trong `counts.entities` ⇒ tổng số nhãn của nó = `counts.others`).
+    private func isVerbishWord(_ head: Word?) -> Bool {
+        guard let head, head.count >= 2, dictionaries.status(word: head) == .common, counts.entities[head] == nil else {
+            return false
+        }
         let total = Int(counts.others[head] ?? 0)
         guard total >= Rules.verbHeadMinTagged else { return false }
         return Double(counts.verbish[head] ?? 0) >= Rules.verbHeadVerbishRatio * Double(total)
+    }
+
+    /// `first_common(x)`: từ thường đầu tiên của phép phủ `isCoveredByCommonWords` (dài nhất từ trái, 6 … 2 chữ).
+    private func firstCommonWord(of word: Word) -> Word? {
+        var end = min(word.count, Rules.commonPhraseMaxPart)
+        while end >= 2 {
+            let head = word.slice(0, end)
+            if dictionaries.status(word: head) == .common { return head }
+            end -= 1
+        }
+        return nil
     }
 
     /// L21 `name_fragment`: `base = w[:-1]`.

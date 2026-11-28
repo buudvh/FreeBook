@@ -2,6 +2,19 @@
 
 Lịch sử thay đổi cũ tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
+## [1.3.1110] - 2026-11-28
+
+### docs: ghi chú lọc name local theo hậu tố Nhân danh, tiền tố, họ riêng, luật phân loại mới và độ dài name
+
+Cập nhật `.claude/rules/` cho đợt 1.3.1103–1109 (plan `Docs/Plans/2026-11-27-phan-loai-name.md`).
+- `translation.md`: "Đuôi" ⇒ "Hậu tố" (1.299 mục, loại Nhân danh thay Pronouns, chip lọc loại); Tiền tố
+  (`LocalNameFilterPrefixStore`, chỉ ghép trước tên Latin); Họ riêng (`QuickTranslationSurnameStore.nameFilter`);
+  thứ tự phân loại L11 → L1 / L2 → L3 / L4, L6, lý do bỏ `rank_prefix` / `glued_names` / `length_off`; bản tham chiếu
+  11 truyện `run11_phanloai.sh` + `cmp_rules_phanloai.py`; hàng Tiền tố / Hậu tố ở màn duyệt; Độ dài name; popup Lưu;
+  đầu thẻ dính; dấu gói tạm tính cả tiền tố.
+- `ui-conventions.md`: danh sách áp màn Sửa từ; popup ba cách lưu ở chỗ không phải nhập file.
+- `storage.md`: các khoá `UserDefaults` / `@AppStorage` của danh sách lọc name.
+
 ## [1.3.1109] - 2026-11-28
 
 ### feat: sheet lọc name local có danh sách Tiền tố và Họ, thanh kéo hai đầu chọn độ dài name

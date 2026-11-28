@@ -61,6 +61,7 @@
 省=tỉnh|place|after
 乡=hương|place|after
 寨=trại|place|after
+堡=bảo|place|after
 渡=độ|place|after
 泽=trạch|place|after
 关=quan|place|after|off

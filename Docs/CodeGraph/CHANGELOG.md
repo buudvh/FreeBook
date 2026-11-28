@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **Tàng Công Các**.
 
+## [1.3.1140] - 2026-11-28
+
+### feat: lọc name local thêm đuôi 堡 vào bộ dò và bỏ cụm kiểu 张开巨口 bị nhận là tên người
+
+- Hai việc nhỏ còn lại của đợt soát "đủ name / hết rác", đều đo trước trên bản Python tham chiếu (11 truyện): thêm 3 hàng (寒冰堡 39 lần, 霜狼古堡, 枫丘城堡), mất 1 hàng (张开巨口 — rác), không name đã có nào bị bỏ.
+- Đuôi 堡 = "bảo" (địa danh) vào file gốc `NameFilterSuffixes.txt` (bộ dò cố định của cách A) ⇒ bộ luật sinh được ứng viên "X堡" và luật "từ thường + hậu tố dò" của phía LAC giữ được 寒冰堡 (trước bị `dict_common_head` bỏ vì 寒冰 là từ thường). Danh sách hậu tố của người dùng tự có thêm mục này (mục gốc mới), sửa / xoá được như mọi mục gốc.
+- L20 `common_phrase` (`LocalNameFilterJunkRules`): trước chỉ áp cho Nhân danh không mở đầu bằng họ; nay áp cả cho name mở đầu bằng họ khi từ thường đầu tiên của phép phủ là động từ / giới từ… theo LAC (LAC gán đứng riêng ≥ 20 lần, ≥ 60 % nhãn `VERBISH`, chưa từng là thực thể — `isVerbishWord`, tách ra dùng chung với L22 `verb_head`). 张开巨口 (张 là họ, 张开 = "mở ra") bị bỏ; 通天蛤蟆, 金刚巨虎 giữ.
+- Đã đo và không làm vì bắt nhầm / kéo về name ghép: giữ "thực thể + cụm chung có hậu tố" ở `glued_fragment` (临济城城卫总司, 郑氏武馆真传弟子宅院 quay lại), bỏ "từ kiểu động từ + danh xưng" (nhầm 离乱天君, 无量天君), thêm đuôi 大道 (truyện tu tiên dùng 大道 cho "đại đạo").
+- `.claude/rules/translation.md`: ghi đợt 6, sửa số mục của file hậu tố gốc.
+- Chưa build (máy Windows); chưa thử trên máy. Số đo là của bản Python tham chiếu, không phải của app.
+
 ## [1.3.1139] - 2026-11-28
 
 ### feat: lọc name local trả lại tên thật bị các luật lọc cũ bỏ nhầm như 江明月, 柯大力, 云梦商会, 史莱克城
@@ -416,16 +427,3 @@ tố hậu tố thôi được rồi sao dùng vp nữa"; duyệt cách 2).
   Đái Hạo ⇒ Đới Hạo) — không làm.
 - `translation.md` cập nhật đoạn Nghĩa và Gói tạm tự cập nhật.
 Chưa biên dịch được tại chỗ (Windows); check_architecture chỉ còn violation cũ JSDom.swift.
-
-## [1.3.1110] - 2026-11-28
-
-### docs: ghi chú lọc name local theo hậu tố Nhân danh, tiền tố, họ riêng, luật phân loại mới và độ dài name
-
-Cập nhật `.claude/rules/` cho đợt 1.3.1103–1109 (plan `Docs/Plans/2026-11-27-phan-loai-name.md`).
-- `translation.md`: "Đuôi" ⇒ "Hậu tố" (1.299 mục, loại Nhân danh thay Pronouns, chip lọc loại); Tiền tố
-  (`LocalNameFilterPrefixStore`, chỉ ghép trước tên Latin); Họ riêng (`QuickTranslationSurnameStore.nameFilter`);
-  thứ tự phân loại L11 → L1 / L2 → L3 / L4, L6, lý do bỏ `rank_prefix` / `glued_names` / `length_off`; bản tham chiếu
-  11 truyện `run11_phanloai.sh` + `cmp_rules_phanloai.py`; hàng Tiền tố / Hậu tố ở màn duyệt; Độ dài name; popup Lưu;
-  đầu thẻ dính; dấu gói tạm tính cả tiền tố.
-- `ui-conventions.md`: danh sách áp màn Sửa từ; popup ba cách lưu ở chỗ không phải nhập file.
-- `storage.md`: các khoá `UserDefaults` / `@AppStorage` của danh sách lọc name.
